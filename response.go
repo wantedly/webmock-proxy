@@ -5,25 +5,23 @@ import (
 	"net/http"
 )
 
-type RespVar struct {
-	ContentType string
-	StatusCode  int
-	Body        string
-}
-
 func NewResponse(r *http.Request) *http.Response {
-	respVar := respVar()
-	return goproxy.NewResponse(r, respVar.ContentType, respVar.StatusCode, respVar.Body)
+	resp := response()
+	contentType := resp.Header.ContentType
+	statusCode := resp.Status.Code
+	body := resp.String
+	return goproxy.NewResponse(r, contentType, statusCode, body)
 }
 
-func respVar() RespVar {
+func response() Response {
 	filename := "webmock-cache.json"
-	return structParser(ConvertStruct(ReadFile(filename)))
+	return RespStructParser(ConvertStruct(ReadFile(filename)))
 }
 
-func structParser(httpInt HttpInteractions) RespVar {
-	contentType := httpInt.Connection[0].Response.Header.ContentType
-	statusCode := httpInt.Connection[0].Response.Status.Code
-	body := httpInt.Connection[0].Response.String
-	return RespVar{contentType, statusCode, body}
+func RespStructParser(httpInt HttpInteractions) Response {
+	return httpInt.Connection[0].Response
+}
+
+func ReqStructParser(httpInt HttpInteractions) Request {
+	return httpInt.Connection[0].Request
 }

@@ -25,14 +25,15 @@ func main() {
 
 	proxy.OnRequest().DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-			if true {
+			body := readRequestBody(r)
+
+			if ValidateRequest(r, body) {
 				resp := NewResponse(r)
 				ctx.Logf("Use Cache %s", "webmock-cache.json")
 				useCache <- true
 				return r, resp
 			}
 
-			body := readRequestBody(r)
 			c <- body
 			r.Body = ioutil.NopCloser(bytes.NewBufferString(body))
 			return r, nil
@@ -43,7 +44,10 @@ func main() {
 			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
 				select {
 				case respBody := <-c:
-					ConvertJsonFile(respBody, b, ctx)
+					if ValidateResponse(ctx, string(b)) != true {
+						fmt.Println("Update Cache")
+						ConvertJsonFile(respBody, b, ctx)
+					}
 				case <-useCache:
 				}
 				return b
