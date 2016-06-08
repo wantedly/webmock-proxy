@@ -91,7 +91,9 @@ func respStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
 	contentLength := ctx.Resp.Header.Get("Content-Length")
 	header := Header{contentType, contentLength}
 
-	response := Response{status, header, string(b)}
+	body := strings.TrimRight(string(b), "\n")
+
+	response := Response{status, header, body}
 	return response
 }
 
