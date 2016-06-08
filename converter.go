@@ -105,3 +105,23 @@ func writeFile(str string) {
 		fmt.Println("Cannot Write file")
 	}
 }
+
+func ReadFile(filename string) []byte {
+	b, err := ioutil.ReadFile(filename)
+	// TODO Add error handling
+	if err != nil {
+		return []byte("error")
+	}
+	return b
+}
+
+func ConvertStruct(b []byte) HttpInteractions {
+	var httpInt HttpInteractions
+	err := json.Unmarshal(b, &httpInt)
+	if err != nil {
+		// TODO: Add error handling
+		fmt.Println("JSON Marshal Error: ")
+		return httpInt
+	}
+	return httpInt
+}
