@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/elazarl/goproxy"
 )
@@ -47,9 +49,10 @@ func ConvertJsonFile(respBody string, b []byte, ctx *goproxy.ProxyCtx) {
 	req := reqStruct(respBody, ctx)
 	resp := respStruct(b, ctx)
 	con := Connection{req, resp, ctx.Resp.Header.Get("Date")}
+	// TODO: 既存の json file とマージさせる必要がある
 	arr := []Connection{con}
 	httpInt := HttpInteractions{arr}
-	fmt.Println(convertJson(httpInt))
+	writeFile(convertJson(httpInt))
 }
 
 func convertJson(httpInt HttpInteractions) string {
@@ -90,4 +93,13 @@ func respStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
 
 	response := Response{status, header, string(b)}
 	return response
+}
+
+func writeFile(str string) {
+	b := *(*[]byte)(unsafe.Pointer(&str))
+	filename := "webmock-cache.json"
+	err := ioutil.WriteFile(filename, b, 0644)
+	if err != nil {
+		fmt.Println("Cannot Write file")
+	}
 }
