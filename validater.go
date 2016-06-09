@@ -18,7 +18,7 @@ func validateRequest(r *http.Request, body string) bool {
 	if (r.Header.Get("Content-Type") == req.Header.ContentType) &&
 		(body == req.String) &&
 		(r.Method == req.Method) &&
-		(file.URL == req.Url) {
+		(file.URL == req.URL) {
 		return true
 	}
 	return false

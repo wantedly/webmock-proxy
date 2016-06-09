@@ -15,10 +15,10 @@ func newResponse(r *http.Request) *http.Response {
 	return goproxy.NewResponse(r, contentType, statusCode, body)
 }
 
-func getRespStruct(file File) Response {
-	return parseRespStruct(convertJSONToStruct(readFile(file.Path)))
+func getRespStruct(f file) response {
+	return parseRespStruct(convertJSONToStruct(readFile(f.Path)))
 }
 
-func parseRespStruct(httpInt HttpInteractions) Response {
-	return httpInt.Connection[0].Response
+func parseRespStruct(con connection) response {
+	return con.Response
 }

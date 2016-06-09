@@ -1,9 +1,9 @@
 package main
 
-func getReqStruct(file File) Request {
-	return parseReqStruct(convertJSONToStruct(readFile(file.Path)))
+func getReqStruct(f file) request {
+	return parseReqStruct(convertJSONToStruct(readFile(f.Path)))
 }
 
-func parseReqStruct(httpInt HttpInteractions) Request {
-	return httpInt.Connection[0].Request
+func parseReqStruct(con connection) request {
+	return con.Request
 }

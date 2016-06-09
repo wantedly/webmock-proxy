@@ -9,7 +9,7 @@ import (
 	"unsafe"
 )
 
-type File struct {
+type file struct {
 	URL     string
 	RootDir string
 	Path    string
@@ -46,21 +46,21 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func recursiveWriteFile(str string, file File) {
-	if fileExists(file.Path) || fileExists(file.Dir) {
-		writeFile(str, file.Path)
+func recursiveWriteFile(str string, f file) {
+	if fileExists(f.Path) || fileExists(f.Dir) {
+		writeFile(str, f.Path)
 		return
 	}
-	createDir(file.Dir)
-	writeFile(str, file.Path)
+	createDir(f.Dir)
+	writeFile(str, f.Path)
 }
 
-func getFileStruct(r *http.Request) File {
+func getFileStruct(r *http.Request) file {
 	rootDir := "cache/"
 	url := r.URL.Host + r.URL.Path
 	path := rootDir + url
 	arr := strings.Split(path, "/")
 	name := arr[len(arr)-1]
 	dir := strings.TrimRight(path, name)
-	return File{url, rootDir, path, dir, name}
+	return file{url, rootDir, path, dir, name}
 }
