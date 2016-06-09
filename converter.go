@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/elazarl/goproxy"
@@ -24,14 +23,9 @@ type request struct {
 }
 
 type response struct {
-	Status status `json:"status"`
+	Status string `json:"status"`
 	Header header `json:"header"`
 	String string `json:"string"`
-}
-
-type status struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
 }
 
 type header struct {
@@ -73,10 +67,6 @@ func createReqStruct(respBody string, ctx *goproxy.ProxyCtx) request {
 }
 
 func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) response {
-	statusArray := strings.Fields(ctx.Resp.Status)
-	codeStr, message := statusArray[0], statusArray[1]
-	code, _ := strconv.Atoi(codeStr)
-	status := status{code, message}
 
 	contentType := ctx.Resp.Header.Get("Content-Type")
 	contentLength := ctx.Resp.Header.Get("Content-Length")
@@ -84,7 +74,7 @@ func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) response {
 
 	body := strings.TrimRight(string(b), "\n")
 
-	return response{status, header, body}
+	return response{ctx.Resp.Status, header, body}
 }
 
 func convertJSONToStruct(b []byte) connection {

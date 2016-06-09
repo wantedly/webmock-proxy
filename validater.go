@@ -2,8 +2,6 @@ package main
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/elazarl/goproxy"
 )
@@ -32,15 +30,12 @@ func validateResponse(ctx *goproxy.ProxyCtx, body string) bool {
 	file := getFileStruct(ctx.Req)
 	resp := getRespStruct(file)
 	contentType := resp.Header.ContentType
-	statusCode := resp.Status.Code
+	statusCode := resp.Status
 	cacheBody := resp.String
-	statusArray := strings.Fields(ctx.Resp.Status)
-	codeStr := statusArray[0]
-	code, _ := strconv.Atoi(codeStr)
 
 	if (ctx.Resp.Header.Get("Content-Type") == contentType) &&
 		(body == cacheBody) &&
-		(code == statusCode) {
+		(ctx.Resp.Status == statusCode) {
 		return true
 	}
 	return false
