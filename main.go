@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -20,7 +21,6 @@ func main() {
 	// make でチャネルを作るときに第二引数を与えないと buffer size 0 となり、
 	// ロックされてレスポンスが一生帰ってこなくなる。
 	c := make(chan string, 1)
-	useCache := make(chan bool, 1)
 
 	// MEMO(munisystem):
 	// 外部にリクエストが飛ばないように、環境変数でモードを切り替えるようにした
@@ -31,15 +31,10 @@ func main() {
 	// しかしこれでは API のアップデートをしたい場合に一々起動しなおさなきゃいけなくなる。
 	env := os.Getenv("WEBMOCK_PROXY_RECORD")
 	if env == "true" {
+		fmt.Println("webmock-proxy run record mode.")
 		proxy.OnRequest().DoFunc(
 			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 				body := readRequestBody(r)
-				if validateRequest(r, body) {
-					resp := newResponse(r)
-					ctx.Logf("webmock-proxy use http request cache!!")
-					useCache <- true
-					return r, resp
-				}
 				c <- body
 				r.Body = ioutil.NopCloser(bytes.NewBufferString(body))
 				return r, nil
@@ -48,11 +43,8 @@ func main() {
 		proxy.OnResponse().Do(
 			goproxy.HandleBytes(
 				func(b []byte, ctx *goproxy.ProxyCtx) []byte {
-					select {
-					case respBody := <-c:
-						createCacheFile(respBody, b, ctx)
-					case <-useCache:
-					}
+					respBody := <-c
+					createCacheFile(respBody, b, ctx)
 					return b
 				}))
 	} else {
