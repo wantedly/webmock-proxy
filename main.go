@@ -20,20 +20,17 @@ func main() {
 	// make でチャネルを作るときに第二引数を与えないと buffer size 0 となり、
 	// ロックされてレスポンスが一生帰ってこなくなる。
 	c := make(chan string, 1)
-
 	useCache := make(chan bool, 1)
 
 	proxy.OnRequest().DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			body := readRequestBody(r)
-
-			if ValidateRequest(r, body) {
-				resp := NewResponse(r)
-				ctx.Logf("Use Cache %s", "webmock-cache.json")
+			if validateRequest(r, body) {
+				resp := newResponse(r)
+				ctx.Logf("webmock-proxy use http request cache!!")
 				useCache <- true
 				return r, resp
 			}
-
 			c <- body
 			r.Body = ioutil.NopCloser(bytes.NewBufferString(body))
 			return r, nil
@@ -44,10 +41,7 @@ func main() {
 			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
 				select {
 				case respBody := <-c:
-					if ValidateResponse(ctx, string(b)) != true {
-						fmt.Println("Update Cache")
-						ConvertJsonFile(respBody, b, ctx)
-					}
+					createCacheFile(respBody, b, ctx)
 				case <-useCache:
 				}
 				return b
