@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -47,14 +46,4 @@ func main() {
 				return b
 			}))
 	log.Fatal(http.ListenAndServe(":8080", proxy))
-}
-
-func readRequestBody(r *http.Request) string {
-	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		// TODO: Add error handling
-		fmt.Println("Oops...")
-	}
-	return string(body)
 }
