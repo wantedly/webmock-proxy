@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 	"strings"
-	"unsafe"
 
 	"github.com/elazarl/goproxy"
 )
@@ -45,17 +43,17 @@ type Header struct {
 	ContentLength string `json:"Content-Length"`
 }
 
-func ConvertJsonFile(respBody string, b []byte, ctx *goproxy.ProxyCtx) {
-	req := reqStruct(respBody, ctx)
-	resp := respStruct(b, ctx)
+func createCacheFile(respBody string, b []byte, ctx *goproxy.ProxyCtx) {
+	file := getFileStruct(ctx.Req)
+	req := createReqStruct(respBody, ctx)
+	resp := createRespStruct(b, ctx)
 	con := Connection{req, resp, ctx.Resp.Header.Get("Date")}
-	// TODO: 既存の json file とマージさせる必要がある
 	arr := []Connection{con}
 	httpInt := HttpInteractions{arr}
-	writeFile(convertJson(httpInt))
+	recursiveWriteFile(convertStructToJSON(httpInt), file)
 }
 
-func convertJson(httpInt HttpInteractions) string {
+func convertStructToJSON(httpInt HttpInteractions) string {
 	jsonBytes, err := json.Marshal(httpInt)
 	if err != nil {
 		// TODO: Add error handling
@@ -67,7 +65,7 @@ func convertJson(httpInt HttpInteractions) string {
 	return out.String()
 }
 
-func reqStruct(respBody string, ctx *goproxy.ProxyCtx) Request {
+func createReqStruct(respBody string, ctx *goproxy.ProxyCtx) Request {
 	contentType := ctx.Req.Header.Get("Content-Type")
 	contentLength := ctx.Req.Header.Get("Content-Length")
 	header := Header{contentType, contentLength}
@@ -81,7 +79,7 @@ func reqStruct(respBody string, ctx *goproxy.ProxyCtx) Request {
 	return request
 }
 
-func respStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
+func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
 	statusArray := strings.Fields(ctx.Resp.Status)
 	codeStr, message := statusArray[0], statusArray[1]
 	code, _ := strconv.Atoi(codeStr)
@@ -97,25 +95,7 @@ func respStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
 	return response
 }
 
-func writeFile(str string) {
-	b := *(*[]byte)(unsafe.Pointer(&str))
-	filename := "webmock-cache.json"
-	err := ioutil.WriteFile(filename, b, 0644)
-	if err != nil {
-		fmt.Println("Cannot Write file")
-	}
-}
-
-func ReadFile(filename string) []byte {
-	b, err := ioutil.ReadFile(filename)
-	// TODO Add error handling
-	if err != nil {
-		return []byte("error")
-	}
-	return b
-}
-
-func ConvertStruct(b []byte) HttpInteractions {
+func convertJSONToStruct(b []byte) HttpInteractions {
 	var httpInt HttpInteractions
 	err := json.Unmarshal(b, &httpInt)
 	if err != nil {
