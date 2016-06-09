@@ -33,6 +33,10 @@ type header struct {
 	ContentLength string `json:"Content-Length"`
 }
 
+type responseBody struct {
+	Message string `json:"message"`
+}
+
 func createCacheFile(respBody string, b []byte, ctx *goproxy.ProxyCtx) {
 	file := getFileStruct(ctx.Req)
 	req := createReqStruct(respBody, ctx)
@@ -41,8 +45,8 @@ func createCacheFile(respBody string, b []byte, ctx *goproxy.ProxyCtx) {
 	recursiveWriteFile(convertStructToJSON(con), file)
 }
 
-func convertStructToJSON(con connection) string {
-	jsonBytes, err := json.Marshal(con)
+func convertStructToJSON(v interface{}) string {
+	jsonBytes, err := json.Marshal(v)
 	if err != nil {
 		// TODO: Add error handling
 		fmt.Println("JSON Marshal Error: ", err)
@@ -82,4 +86,10 @@ func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) response {
 	body := strings.TrimRight(string(b), "\n")
 
 	return response{ctx.Resp.Status, header, body}
+}
+
+func createErrorMessage(str string) string {
+	mes := "Not found webmock-proxy cache. URL: " + str
+	body := responseBody{mes}
+	return convertStructToJSON(body)
 }
