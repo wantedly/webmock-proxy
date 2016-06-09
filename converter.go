@@ -53,30 +53,6 @@ func convertStructToJSON(con connection) string {
 	return out.String()
 }
 
-func createReqStruct(respBody string, ctx *goproxy.ProxyCtx) request {
-	contentType := ctx.Req.Header.Get("Content-Type")
-	contentLength := ctx.Req.Header.Get("Content-Length")
-	header := header{contentType, contentLength}
-
-	method := ctx.Req.Method
-
-	host := ctx.Req.URL.Host
-	path := ctx.Req.URL.Path
-
-	return request{header, respBody, method, host + path}
-}
-
-func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) response {
-
-	contentType := ctx.Resp.Header.Get("Content-Type")
-	contentLength := ctx.Resp.Header.Get("Content-Length")
-	header := header{contentType, contentLength}
-
-	body := strings.TrimRight(string(b), "\n")
-
-	return response{ctx.Resp.Status, header, body}
-}
-
 func convertJSONToStruct(b []byte) connection {
 	var con connection
 	err := json.Unmarshal(b, &con)
@@ -86,4 +62,24 @@ func convertJSONToStruct(b []byte) connection {
 		return con
 	}
 	return con
+}
+
+func createReqStruct(respBody string, ctx *goproxy.ProxyCtx) request {
+	contentType := ctx.Req.Header.Get("Content-Type")
+	contentLength := ctx.Req.Header.Get("Content-Length")
+	header := header{contentType, contentLength}
+	method := ctx.Req.Method
+	host := ctx.Req.URL.Host
+	path := ctx.Req.URL.Path
+
+	return request{header, respBody, method, host + path}
+}
+
+func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) response {
+	contentType := ctx.Resp.Header.Get("Content-Type")
+	contentLength := ctx.Resp.Header.Get("Content-Length")
+	header := header{contentType, contentLength}
+	body := strings.TrimRight(string(b), "\n")
+
+	return response{ctx.Resp.Status, header, body}
 }
