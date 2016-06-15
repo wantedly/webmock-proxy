@@ -1,0 +1,6 @@
+hash: 04ecc5dd6662b0586bd0933652971f74422b3113ea175669741a8327f5369afe
+updated: 2016-06-15T11:02:09.554778995+09:00
+imports:
+- name: github.com/elazarl/goproxy
+  version: 52c137b4b19acaf8cde1d9e0579d928519918919
+devImports: []
