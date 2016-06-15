@@ -2,3 +2,5 @@ webmock-cache
 cache
 
 /vendor
+/bin
+webmock-proxy
