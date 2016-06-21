@@ -32,6 +32,7 @@ func main() {
 	env := os.Getenv("WEBMOCK_PROXY_RECORD")
 	if env == "true" {
 		fmt.Println("webmock-proxy run record mode.")
+		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 		proxy.OnRequest().DoFunc(
 			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 				body := readRequestBody(r)
@@ -48,6 +49,7 @@ func main() {
 					return b
 				}))
 	} else {
+		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 		proxy.OnRequest().DoFunc(
 			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 				body := readRequestBody(r)
