@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"unsafe"
 )
 
@@ -37,7 +36,7 @@ func readFile(path string) []byte {
 func createDir(dir string) {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		fmt.Println("Cannot create file")
+		fmt.Println("Cannot create dir")
 	}
 }
 
@@ -56,11 +55,10 @@ func recursiveWriteFile(str string, f file) {
 }
 
 func getFileStruct(r *http.Request) file {
-	rootDir := "cache/"
+	rootDir := "webmock-cache/"
 	url := r.URL.Host + r.URL.Path
-	path := rootDir + url
-	arr := strings.Split(path, "/")
-	name := arr[len(arr)-1]
-	dir := strings.TrimRight(path, name)
+	name := "cache.json"
+	dir := rootDir + url
+	path := dir + "/" + name
 	return file{url, rootDir, path, dir, name}
 }
