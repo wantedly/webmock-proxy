@@ -1,0 +1,3 @@
+package: github.com/wantedly/webmock-proxy
+import:
+- package: github.com/elazarl/goproxy
