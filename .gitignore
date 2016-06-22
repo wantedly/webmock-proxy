@@ -2,3 +2,5 @@ webmock-cache
 webmock-proxy
 /vendor
 /bin
+*.pem
+*.crt
