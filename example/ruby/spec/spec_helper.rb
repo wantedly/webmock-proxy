@@ -21,7 +21,7 @@ if !File.exists?(ca)
   exit 0
 end
 
-require_relative '../github'
+require_relative '../sample'
 ENV['http_proxy'] = 'http://localhost:8080'
 
 RSpec.configure do |config|
