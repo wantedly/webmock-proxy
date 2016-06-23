@@ -1,6 +1,7 @@
 require 'spec_helper'
 require 'json'
 require 'net/http'
+require_relative '../sample'
 
 describe 'Sample' do
   it 'Github API request' do
