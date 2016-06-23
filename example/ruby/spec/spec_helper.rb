@@ -1,26 +1,8 @@
 def webmockProxySetup
-  ca = File.expand_path("./ca.pem", File.dirname(__FILE__))
+  # Download goproxy root certificate https://raw.githubusercontent.com/elazarl/goproxy/master/ca.pem
+  ca = File.expand_path("../ca.pem", File.dirname(__FILE__))
   ENV['SSL_CERT_FILE'] = ca
-  if !File.exists?(ca)
-    downloadCert()
-    puts "Downloaded goproxy using ca certificate file."
-    puts "Please retry."
-    exit 0
-  else
-    ENV['http_proxy'] = 'http://localhost:8080'
-  end
-end
-
-def downloadCert
-  require 'open-uri'
-  url = "https://raw.githubusercontent.com/elazarl/goproxy/master/ca.pem"
-  dir = File.expand_path(File.dirname(__FILE__))
-  path = dir + '/ca.pem'
-  open(path, 'wb') do |f|
-    open(url, "r", {:ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE}) do |data|
-      f.write(data.read)
-    end
-  end
+  ENV['http_proxy'] = 'http://localhost:8080'
 end
 
 RSpec.configure do |config|
