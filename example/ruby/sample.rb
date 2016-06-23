@@ -22,7 +22,11 @@ module Github
   end
 end
 
-if __FILE__ == $0
+def github_api()
   client = Github::Client.new
-  p client.apis
+  client.apis
+end
+
+if __FILE__ == $0
+  p github_api()
 end
