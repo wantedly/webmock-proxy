@@ -19,22 +19,18 @@ type File struct {
 	Name string
 }
 
-type Cache struct {
-	ID             uint
-	URL            string
-	Method         string
-	RequestBody    string
-	ResponseStatus string
-	ResponseHeader string
-	ResponseBody   string
-	Update         time.Time
+type Endpoint struct {
+	ID          uint `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
+	URL         string
+	Connections []Connection
+	Update      time.Time
 }
 
 func createCache(body string, b []byte, ctx *goproxy.ProxyCtx, db *gorm.DB) error {
 	file := getFileStruct(ctx.Req)
 	req := createReqStruct(body, ctx)
 	resp := createRespStruct(b, ctx)
-	conn := &Connection{req, resp, ctx.Resp.Header.Get("Date")}
+	conn := Connection{Request: req, Response: resp, RecordedAt: ctx.Resp.Header.Get("Date")}
 	jsonStr, err := structToJSON(conn)
 	if err != nil {
 		return err
@@ -42,15 +38,14 @@ func createCache(body string, b []byte, ctx *goproxy.ProxyCtx, db *gorm.DB) erro
 	if err = writeFile(jsonStr, file); err != nil {
 		return err
 	}
-	cache := &Cache{
-		URL:            file.URL,
-		Method:         conn.Request.Method,
-		RequestBody:    conn.Request.String,
-		ResponseStatus: conn.Response.Status,
-		ResponseBody:   conn.Response.String,
-		Update:         time.Now(),
+	var conns []Connection
+	conns = append(conns, conn)
+	endpoint := &Endpoint{
+		URL:         file.URL,
+		Connections: conns,
+		Update:      time.Now(),
 	}
-	if err = insertCache(cache, db); err != nil {
+	if err := insertCache(endpoint, db); err != nil {
 		return err
 	}
 	return nil

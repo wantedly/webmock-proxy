@@ -10,13 +10,21 @@ func Connect() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.LogMode(true)
 
-	db.AutoMigrate(&Cache{})
+	db.AutoMigrate(
+		&Endpoint{},
+		&Connection{},
+		&Request{},
+		&Response{},
+		&ResponseBody{},
+		&Header{},
+	)
 	return db, nil
 }
 
-func insertCache(c *Cache, db *gorm.DB) error {
-	if err := db.Create(c).Error; err != nil {
+func insertCache(e *Endpoint, db *gorm.DB) error {
+	if err := db.Create(e).Error; err != nil {
 		return err
 	}
 	return nil

@@ -10,31 +10,43 @@ import (
 )
 
 type Connection struct {
-	Request    *Request  `json:"request"`
-	Response   *Response `json:"response"`
-	RecordedAt string    `json:"recorded_at"`
+	ID         uint     `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
+	EndpointID uint     `json:"-"`
+	Request    Request  `json:"request"`
+	Response   Response `json:"response"`
+	RecordedAt string   `json:"recorded_at"`
 }
 
 type Request struct {
-	Header *Header `json:"header"`
-	String string  `json:"string"`
-	Method string  `json:"method"`
-	URL    string  `json:"url"`
+	ID           uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
+	ConnectionID uint   `json:"-"`
+	Header       Header `json:"header"`
+	String       string `json:"string"`
+	Method       string `json:"method"`
+	URL          string `json:"url"`
 }
 
 type Response struct {
-	Status string  `json:"status"`
-	Header *Header `json:"header"`
-	String string  `json:"string"`
+	ID           uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
+	ConnectionID uint   `json:"-"`
+	Status       string `json:"status"`
+	Header       Header `json:"header"`
+	String       string `json:"string"`
 }
 
 type Header struct {
+	ID            uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
+	RequestID     uint   `json:"-"`
+	ResponseID    uint   `json:"-"`
+	Status        string `json:"status"`
 	ContentType   string `json:"Content-Type"`
 	ContentLength string `json:"Content-Length"`
 }
 
 type ResponseBody struct {
-	Message string `json:"message"`
+	ID         uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
+	ResponseID uint   `json:"-"`
+	Message    string `json:"message"`
 }
 
 func structToJSON(v interface{}) (string, error) {
@@ -58,28 +70,28 @@ func jsonToStruct(b []byte) *Connection {
 	return &conn
 }
 
-func createReqStruct(body string, ctx *goproxy.ProxyCtx) *Request {
+func createReqStruct(body string, ctx *goproxy.ProxyCtx) Request {
 	contentType := ctx.Req.Header.Get("Content-Type")
 	contentLength := ctx.Req.Header.Get("Content-Length")
-	header := &Header{contentType, contentLength}
+	header := Header{ContentType: contentType, ContentLength: contentLength}
 	method := ctx.Req.Method
 	host := ctx.Req.URL.Host
 	path := ctx.Req.URL.Path
 
-	return &Request{header, body, method, host + path}
+	return Request{Header: header, String: body, Method: method, URL: host + path}
 }
 
-func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) *Response {
+func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
 	contentType := ctx.Resp.Header.Get("Content-Type")
 	contentLength := ctx.Resp.Header.Get("Content-Length")
-	header := &Header{contentType, contentLength}
+	header := Header{ContentType: contentType, ContentLength: contentLength}
 	body := strings.TrimRight(string(b), "\n")
 
-	return &Response{ctx.Resp.Status, header, body}
+	return Response{Status: ctx.Resp.Status, Header: header, String: body}
 }
 
 func createErrorMessage(str string) (string, error) {
 	mes := "Not found webmock-proxy cache. URL: " + str
-	body := &ResponseBody{mes}
+	body := &ResponseBody{Message: mes}
 	return structToJSON(body)
 }
