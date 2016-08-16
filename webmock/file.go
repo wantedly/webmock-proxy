@@ -4,9 +4,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 	"unsafe"
 
 	"github.com/elazarl/goproxy"
+	"github.com/jinzhu/gorm"
 )
 
 type File struct {
@@ -17,7 +19,18 @@ type File struct {
 	Name string
 }
 
-func createCache(body string, b []byte, ctx *goproxy.ProxyCtx) error {
+type Cache struct {
+	ID             uint
+	URL            string
+	Method         string
+	RequestBody    string
+	ResponseStatus string
+	ResponseHeader string
+	ResponseBody   string
+	Update         time.Time
+}
+
+func createCache(body string, b []byte, ctx *goproxy.ProxyCtx, db *gorm.DB) error {
 	file := getFileStruct(ctx.Req)
 	req := createReqStruct(body, ctx)
 	resp := createRespStruct(b, ctx)
@@ -27,6 +40,17 @@ func createCache(body string, b []byte, ctx *goproxy.ProxyCtx) error {
 		return err
 	}
 	if err = writeFile(jsonStr, file); err != nil {
+		return err
+	}
+	cache := &Cache{
+		URL:            file.URL,
+		Method:         conn.Request.Method,
+		RequestBody:    conn.Request.String,
+		ResponseStatus: conn.Response.Status,
+		ResponseBody:   conn.Response.String,
+		Update:         time.Now(),
+	}
+	if err = insertCache(cache, db); err != nil {
 		return err
 	}
 	return nil

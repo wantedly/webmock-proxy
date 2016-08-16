@@ -13,6 +13,11 @@ import (
 func Server() {
 	proxy := goproxy.NewProxyHttpServer()
 
+	db, err := Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	c := make(chan string, 1)
 	env := os.Getenv("WEBMOCK_PROXY_RECORD")
 	if env == "1" {
@@ -32,7 +37,7 @@ func Server() {
 			goproxy.HandleBytes(
 				func(b []byte, ctx *goproxy.ProxyCtx) []byte {
 					body := <-c
-					err := createCache(body, b, ctx)
+					err := createCache(body, b, ctx, db)
 					if err != nil {
 						log.Println(err)
 					}
