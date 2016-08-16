@@ -3,7 +3,6 @@ package webmock
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/elazarl/goproxy"
@@ -59,15 +58,13 @@ func structToJSON(v interface{}) (string, error) {
 	return out.String(), nil
 }
 
-func jsonToStruct(b []byte) *Connection {
+func jsonToStruct(b []byte) (*Connection, error) {
 	var conn Connection
 	err := json.Unmarshal(b, &conn)
 	if err != nil {
-		// TODO: Add error handling
-		fmt.Println("JSON Marshal Error: ")
-		return &conn
+		return &conn, err
 	}
-	return &conn
+	return &conn, nil
 }
 
 func createReqStruct(body string, ctx *goproxy.ProxyCtx) Request {

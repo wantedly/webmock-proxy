@@ -12,7 +12,10 @@ func validateRequest(r *http.Request, body string) bool {
 		return false
 	}
 
-	req := getReqStruct(file)
+	req, err := getReqStruct(file)
+	if err != nil {
+		return false
+	}
 	if (r.Header.Get("Content-Type") == req.Header.ContentType) &&
 		(body == req.String) &&
 		(r.Method == req.Method) &&

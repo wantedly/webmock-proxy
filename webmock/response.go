@@ -40,7 +40,11 @@ func getRespStruct(f *File) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
-	return parseRespStruct(jsonToStruct(b)), nil
+	conn, err := jsonToStruct(b)
+	if err != nil {
+		return Response{}, err
+	}
+	return parseRespStruct(conn), nil
 }
 
 func parseRespStruct(conn *Connection) Response {

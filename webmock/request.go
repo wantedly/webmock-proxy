@@ -1,17 +1,20 @@
 package webmock
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 )
 
-func getReqStruct(f *File) Request {
+func getReqStruct(f *File) (Request, error) {
 	b, err := readFile(f.Path)
 	if err != nil {
-		fmt.Println(err)
+		return Request{}, err
 	}
-	return parseReqStruct(jsonToStruct(b))
+	conn, err := jsonToStruct(b)
+	if err != nil {
+		return Request{}, err
+	}
+	return parseReqStruct(conn), nil
 }
 
 func parseReqStruct(conn *Connection) Request {
