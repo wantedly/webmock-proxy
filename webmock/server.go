@@ -15,7 +15,7 @@ func Server() {
 
 	c := make(chan string, 1)
 	env := os.Getenv("WEBMOCK_PROXY_RECORD")
-	if env == "true" {
+	if env == "1" {
 		log.Println("webmock-proxy run record mode.")
 		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 		proxy.OnRequest().DoFunc(
