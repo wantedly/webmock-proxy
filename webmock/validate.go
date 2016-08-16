@@ -1,4 +1,4 @@
-package main
+package webmock
 
 import (
 	"net/http"
@@ -22,13 +22,12 @@ func validateRequest(r *http.Request, body string) bool {
 	return false
 }
 
-// MEMO(munisystem):
-// 現状は URL と request body が一致していた場合は response の状態にかかわらずキャッシュを使うようになっている。
-// TTL を設けるか、cron で定期的に回すか...
-// cron で対応する場合は response の validation を行って対応をする形になる
 func validateResponse(ctx *goproxy.ProxyCtx, body string) bool {
 	file := getFileStruct(ctx.Req)
-	resp := getRespStruct(file)
+	resp, err := getRespStruct(file)
+	if err != nil {
+		return false
+	}
 	contentType := resp.Header.ContentType
 	statusCode := resp.Status
 	cacheBody := resp.String
