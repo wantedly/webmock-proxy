@@ -9,31 +9,31 @@ import (
 	"github.com/elazarl/goproxy"
 )
 
-type connection struct {
-	Request    *request  `json:"request"`
-	Response   *response `json:"response"`
+type Connection struct {
+	Request    *Request  `json:"request"`
+	Response   *Response `json:"response"`
 	RecordedAt string    `json:"recorded_at"`
 }
 
-type request struct {
-	Header *header `json:"header"`
+type Request struct {
+	Header *Header `json:"header"`
 	String string  `json:"string"`
 	Method string  `json:"method"`
 	URL    string  `json:"url"`
 }
 
-type response struct {
+type Response struct {
 	Status string  `json:"status"`
-	Header *header `json:"header"`
+	Header *Header `json:"header"`
 	String string  `json:"string"`
 }
 
-type header struct {
+type Header struct {
 	ContentType   string `json:"Content-Type"`
 	ContentLength string `json:"Content-Length"`
 }
 
-type responseBody struct {
+type ResponseBody struct {
 	Message string `json:"message"`
 }
 
@@ -47,8 +47,8 @@ func structToJSON(v interface{}) (string, error) {
 	return out.String(), nil
 }
 
-func jsonToStruct(b []byte) *connection {
-	var conn connection
+func jsonToStruct(b []byte) *Connection {
+	var conn Connection
 	err := json.Unmarshal(b, &conn)
 	if err != nil {
 		// TODO: Add error handling
@@ -58,28 +58,28 @@ func jsonToStruct(b []byte) *connection {
 	return &conn
 }
 
-func createReqStruct(body string, ctx *goproxy.ProxyCtx) *request {
+func createReqStruct(body string, ctx *goproxy.ProxyCtx) *Request {
 	contentType := ctx.Req.Header.Get("Content-Type")
 	contentLength := ctx.Req.Header.Get("Content-Length")
-	header := &header{contentType, contentLength}
+	header := &Header{contentType, contentLength}
 	method := ctx.Req.Method
 	host := ctx.Req.URL.Host
 	path := ctx.Req.URL.Path
 
-	return &request{header, body, method, host + path}
+	return &Request{header, body, method, host + path}
 }
 
-func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) *response {
+func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) *Response {
 	contentType := ctx.Resp.Header.Get("Content-Type")
 	contentLength := ctx.Resp.Header.Get("Content-Length")
-	header := &header{contentType, contentLength}
+	header := &Header{contentType, contentLength}
 	body := strings.TrimRight(string(b), "\n")
 
-	return &response{ctx.Resp.Status, header, body}
+	return &Response{ctx.Resp.Status, header, body}
 }
 
 func createErrorMessage(str string) (string, error) {
 	mes := "Not found webmock-proxy cache. URL: " + str
-	body := &responseBody{mes}
+	body := &ResponseBody{mes}
 	return structToJSON(body)
 }

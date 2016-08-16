@@ -9,7 +9,7 @@ import (
 	"github.com/elazarl/goproxy"
 )
 
-type file struct {
+type File struct {
 	URL  string
 	Root string
 	Path string
@@ -17,11 +17,11 @@ type file struct {
 	Name string
 }
 
-func createCacheFile(body string, b []byte, ctx *goproxy.ProxyCtx) error {
+func createCache(body string, b []byte, ctx *goproxy.ProxyCtx) error {
 	file := getFileStruct(ctx.Req)
 	req := createReqStruct(body, ctx)
 	resp := createRespStruct(b, ctx)
-	conn := connection{req, resp, ctx.Resp.Header.Get("Date")}
+	conn := &Connection{req, resp, ctx.Resp.Header.Get("Date")}
 	jsonStr, err := structToJSON(conn)
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func createCacheFile(body string, b []byte, ctx *goproxy.ProxyCtx) error {
 	return nil
 }
 
-func writeFile(str string, f *file) error {
+func writeFile(str string, f *File) error {
 	if !fileExists(f.Path) && !fileExists(f.Dir) {
 		err := mkdir(f.Dir)
 		if err != nil {
@@ -60,13 +60,13 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func getFileStruct(r *http.Request) *file {
+func getFileStruct(r *http.Request) *File {
 	root := "webmock-cache/"
 	url := r.URL.Host + r.URL.Path
 	name := "cache.json"
 	dir := root + url
 	path := dir + "/" + name
-	return &file{url, root, path, dir, name}
+	return &File{url, root, path, dir, name}
 }
 
 func mkdir(dir string) error {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func getReqStruct(f *file) *request {
+func getReqStruct(f *File) *Request {
 	b, err := readFile(f.Path)
 	if err != nil {
 		fmt.Println(err)
@@ -14,7 +14,7 @@ func getReqStruct(f *file) *request {
 	return parseReqStruct(jsonToStruct(b))
 }
 
-func parseReqStruct(conn *connection) *request {
+func parseReqStruct(conn *Connection) *Request {
 	return conn.Request
 }
 

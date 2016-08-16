@@ -32,7 +32,7 @@ func Server() {
 			goproxy.HandleBytes(
 				func(b []byte, ctx *goproxy.ProxyCtx) []byte {
 					body := <-c
-					err := createCacheFile(body, b, ctx)
+					err := createCache(body, b, ctx)
 					if err != nil {
 						log.Println(err)
 					}

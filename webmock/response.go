@@ -35,7 +35,7 @@ func newErrorResponse(r *http.Request) (*http.Response, error) {
 	return goproxy.NewResponse(r, "application/json", http.StatusTeapot, body), nil
 }
 
-func getRespStruct(f *file) (*response, error) {
+func getRespStruct(f *File) (*Response, error) {
 	b, err := readFile(f.Path)
 	if err != nil {
 		return nil, err
@@ -43,6 +43,6 @@ func getRespStruct(f *file) (*response, error) {
 	return parseRespStruct(jsonToStruct(b)), nil
 }
 
-func parseRespStruct(conn *connection) *response {
+func parseRespStruct(conn *Connection) *Response {
 	return conn.Response
 }
