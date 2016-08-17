@@ -28,7 +28,10 @@ type Endpoint struct {
 func createCache(body string, b []byte, ctx *goproxy.ProxyCtx, db *gorm.DB) error {
 	file := getFileStruct(ctx.Req)
 	req := createReqStruct(body, ctx)
-	resp := createRespStruct(b, ctx)
+	resp, err := createRespStruct(b, ctx)
+	if err != nil {
+		return err
+	}
 	conn := Connection{Request: req, Response: resp, RecordedAt: ctx.Resp.Header.Get("Date")}
 	byteArr, err := structToJSON(conn)
 	if err != nil {

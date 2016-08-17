@@ -84,14 +84,13 @@ func createReqStruct(body string, ctx *goproxy.ProxyCtx) Request {
 	return Request{Header: string(header), String: body, Method: method, URL: host + path}
 }
 
-func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
+func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) (Response, error) {
 	body := strings.TrimRight(string(b), "\n")
 	header, err := structToJSON(mapToMapInterface(ctx.Resp.Header), false)
 	if err != nil {
-		//TODO
-		log.Println(err)
+		return Response{}, err
 	}
-	return Response{Status: ctx.Resp.Status, Header: string(header), String: body}
+	return Response{Status: ctx.Resp.Status, Header: string(header), String: body}, nil
 }
 
 func createErrorMessage(str string) (string, error) {
