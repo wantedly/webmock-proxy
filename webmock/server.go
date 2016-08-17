@@ -52,8 +52,9 @@ func Server() {
 					log.Println(err)
 				}
 				var resp *http.Response
-				if validateRequest(r, body) {
-					resp, err = newResponse(r)
+				if validateRequest(r, body, db) {
+					// resp, err = newResponse(r)
+					resp, err = newResponseFromDB(db, r)
 					if err != nil {
 						log.Println(err)
 					}

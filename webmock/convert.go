@@ -43,9 +43,7 @@ type Header struct {
 }
 
 type ResponseBody struct {
-	ID         uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
-	ResponseID uint   `json:"-"`
-	Message    string `json:"message"`
+	Message string `json:"message"`
 }
 
 func structToJSON(v interface{}) (string, error) {

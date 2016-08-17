@@ -4,24 +4,30 @@ import (
 	"net/http"
 
 	"github.com/elazarl/goproxy"
+	"github.com/jinzhu/gorm"
 )
 
-func validateRequest(r *http.Request, body string) bool {
+func validateRequest(r *http.Request, body string, db *gorm.DB) bool {
 	file := getFileStruct(r)
 	if !fileExists(file.Path) {
 		return false
 	}
 
-	req, err := getReqStruct(file)
-	if err != nil {
-		return false
-	}
-	if (r.Header.Get("Content-Type") == req.Header.ContentType) &&
-		(body == req.String) &&
-		(r.Method == req.Method) &&
-		(file.URL == req.URL) {
+	endpoint := dbConnectionCacheToStruct(db, r, file)
+	if body == endpoint.Connections[0].Request.String {
 		return true
 	}
+
+	// req, err = fileToReqStruct(file)
+	// if err != nil {
+	// 	return false
+	// }
+	// if (r.Header.Get("Content-Type") == req.Header.ContentType) &&
+	// 	(body == req.String) &&
+	// 	(r.Method == req.Method) &&
+	// 	(file.URL == req.URL) {
+	// 	return true
+	// }
 	return false
 }
 

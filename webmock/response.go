@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/elazarl/goproxy"
+	"github.com/jinzhu/gorm"
 )
 
 const (
@@ -20,6 +21,17 @@ func newResponse(r *http.Request) (*http.Response, error) {
 	if err != nil {
 		return goproxy.NewResponse(r, "application/json", http.StatusInternalServerError, errms), err
 	}
+	contentType := resp.Header.ContentType
+	arr := strings.Fields(resp.Status)
+	code, _ := strconv.Atoi(arr[0])
+	body := resp.String
+	return goproxy.NewResponse(r, contentType, code, body), nil
+}
+
+func newResponseFromDB(db *gorm.DB, r *http.Request) (*http.Response, error) {
+	file := getFileStruct(r)
+	endpoint := selectCache(db, r, file)
+	resp := endpoint.Connections[0].Response
 	contentType := resp.Header.ContentType
 	arr := strings.Fields(resp.Status)
 	code, _ := strconv.Atoi(arr[0])

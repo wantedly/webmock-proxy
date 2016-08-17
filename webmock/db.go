@@ -1,6 +1,8 @@
 package webmock
 
 import (
+	"net/http"
+
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
@@ -17,7 +19,6 @@ func Connect() (*gorm.DB, error) {
 		&Connection{},
 		&Request{},
 		&Response{},
-		&ResponseBody{},
 		&Header{},
 	)
 	return db, nil
@@ -28,4 +29,16 @@ func insertCache(e *Endpoint, db *gorm.DB) error {
 		return err
 	}
 	return nil
+}
+
+func selectCache(db *gorm.DB, r *http.Request, file *File) Endpoint {
+	var endpoint Endpoint
+	db.Preload("Connections").
+		Preload("Connections.Request", "method = ?", r.Method).
+		Preload("Connections.Request.Header").
+		Preload("Connections.Response").
+		Preload("Connections.Response.Header").
+		Where(Endpoint{URL: file.URL}).
+		Find(&endpoint)
+	return endpoint
 }
