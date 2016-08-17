@@ -2,9 +2,11 @@ package webmock
 
 import (
 	"net/http"
+	"reflect"
 
 	"github.com/elazarl/goproxy"
 	"github.com/jinzhu/gorm"
+	"github.com/k0kubun/pp"
 )
 
 func validateRequest(r *http.Request, body string, db *gorm.DB) bool {
@@ -13,16 +15,27 @@ func validateRequest(r *http.Request, body string, db *gorm.DB) bool {
 		return false
 	}
 
-	endpoint := dbConnectionCacheToStruct(db, r, file)
-	if body == endpoint.Connections[0].Request.String {
-		return true
-	}
-
-	// req, err = fileToReqStruct(file)
+	// req, err := fileToReqStruct(file)
 	// if err != nil {
 	// 	return false
 	// }
-	// if (r.Header.Get("Content-Type") == req.Header.ContentType) &&
+
+	endpoint := selectCache(db, r, file)
+	req := endpoint.Connections[0].Request
+	var header interface{}
+	b := []byte(req.Header)
+	err := jsonToStruct(b, &header)
+	pp.Println(header)
+	if err != nil {
+		return false
+	}
+
+	if (body == endpoint.Connections[0].Request.String) &&
+		(reflect.DeepEqual(mapToMapInterface(r.Header), header) == true) {
+		return true
+	}
+
+	// if (reflect.DeepEqual(mapToMapInterface(r.Header), header) == true) &&
 	// 	(body == req.String) &&
 	// 	(r.Method == req.Method) &&
 	// 	(file.URL == req.URL) {
@@ -37,7 +50,13 @@ func validateResponse(ctx *goproxy.ProxyCtx, body string) bool {
 	if err != nil {
 		return false
 	}
-	contentType := resp.Header.ContentType
+	var header interface{}
+	b := []byte(resp.Header)
+	err = jsonToStruct(b, &header)
+	if err != nil {
+		return false
+	}
+	contentType := header.(map[string]interface{})["Content-Type"].([]interface{})[0].(string)
 	statusCode := resp.Status
 	cacheBody := resp.String
 

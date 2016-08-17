@@ -3,6 +3,7 @@ package webmock
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"strings"
 
 	"github.com/elazarl/goproxy"
@@ -19,7 +20,7 @@ type Connection struct {
 type Request struct {
 	ID           uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
 	ConnectionID uint   `json:"-"`
-	Header       Header `json:"header"`
+	Header       string `json:"header"`
 	String       string `json:"string"`
 	Method       string `json:"method"`
 	URL          string `json:"url"`
@@ -29,64 +30,76 @@ type Response struct {
 	ID           uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
 	ConnectionID uint   `json:"-"`
 	Status       string `json:"status"`
-	Header       Header `json:"header"`
+	Header       string `json:"header"`
 	String       string `json:"string"`
-}
-
-type Header struct {
-	ID            uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
-	RequestID     uint   `json:"-"`
-	ResponseID    uint   `json:"-"`
-	Status        string `json:"status"`
-	ContentType   string `json:"Content-Type"`
-	ContentLength string `json:"Content-Length"`
 }
 
 type ResponseBody struct {
 	Message string `json:"message"`
 }
 
-func structToJSON(v interface{}) (string, error) {
-	jsonBytes, err := json.Marshal(v)
+func structToJSON(v interface{}, indentFlag ...bool) ([]byte, error) {
+	byteArr, err := json.Marshal(v)
 	if err != nil {
-		return "", err
+		return make([]byte, 0), err
+	}
+	if indentFlag != nil {
+		return byteArr, nil
 	}
 	out := new(bytes.Buffer)
-	json.Indent(out, jsonBytes, "", "    ")
-	return out.String(), nil
+	json.Indent(out, byteArr, "", "    ")
+	return out.Bytes(), nil
 }
 
-func jsonToStruct(b []byte) (*Connection, error) {
-	var conn Connection
-	err := json.Unmarshal(b, &conn)
+func jsonToStruct(b []byte, v interface{}) error {
+	err := json.Unmarshal(b, v)
 	if err != nil {
-		return &conn, err
+		return err
 	}
-	return &conn, nil
+	return nil
 }
 
+func mapToMapInterface(m map[string][]string) map[string]interface{} {
+	mi := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		mi[k] = v
+	}
+	return mi
+}
+
+// FIXME:
+// *http.Request.Header => map[User-Agent:[Go-http-client/1.1] Accept-Encoding:[gzip]]
+// *goproxy.ProxyCtx.Req.Header => map[User-Agent:[Go-http-client/1.1]]
 func createReqStruct(body string, ctx *goproxy.ProxyCtx) Request {
-	contentType := ctx.Req.Header.Get("Content-Type")
-	contentLength := ctx.Req.Header.Get("Content-Length")
-	header := Header{ContentType: contentType, ContentLength: contentLength}
+	log.Println(ctx.Req.Header)
 	method := ctx.Req.Method
 	host := ctx.Req.URL.Host
 	path := ctx.Req.URL.Path
+	header, err := structToJSON(mapToMapInterface(ctx.Req.Header), false)
+	if err != nil {
+		//TODO
+		log.Println(err)
+	}
 
-	return Request{Header: header, String: body, Method: method, URL: host + path}
+	return Request{Header: string(header), String: body, Method: method, URL: host + path}
 }
 
 func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) Response {
-	contentType := ctx.Resp.Header.Get("Content-Type")
-	contentLength := ctx.Resp.Header.Get("Content-Length")
-	header := Header{ContentType: contentType, ContentLength: contentLength}
 	body := strings.TrimRight(string(b), "\n")
-
-	return Response{Status: ctx.Resp.Status, Header: header, String: body}
+	header, err := structToJSON(mapToMapInterface(ctx.Resp.Header), false)
+	if err != nil {
+		//TODO
+		log.Println(err)
+	}
+	return Response{Status: ctx.Resp.Status, Header: string(header), String: body}
 }
 
 func createErrorMessage(str string) (string, error) {
 	mes := "Not found webmock-proxy cache. URL: " + str
 	body := &ResponseBody{Message: mes}
-	return structToJSON(body)
+	byteArr, err := structToJSON(body)
+	if err != nil {
+		return "", err
+	}
+	return string(byteArr), nil
 }

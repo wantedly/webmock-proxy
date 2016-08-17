@@ -46,6 +46,7 @@ func Server() {
 	} else {
 		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 		proxy.OnRequest().DoFunc(
+			// FIXME: equal(*http.Request, *goproxy.ProxyCtx.Req) => false
 			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 				body, err := readRequestBody(r)
 				if err != nil {

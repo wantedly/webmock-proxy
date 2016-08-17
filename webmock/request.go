@@ -3,8 +3,6 @@ package webmock
 import (
 	"io/ioutil"
 	"net/http"
-
-	"github.com/jinzhu/gorm"
 )
 
 func fileToReqStruct(f *File) (Request, error) {
@@ -12,20 +10,16 @@ func fileToReqStruct(f *File) (Request, error) {
 	if err != nil {
 		return Request{}, err
 	}
-	conn, err := jsonToStruct(b)
+	var conn Connection
+	err = jsonToStruct(b, &conn)
 	if err != nil {
 		return Request{}, err
 	}
-	return parseReqStruct(conn), nil
+	return parseReqStruct(&conn), nil
 }
 
 func parseReqStruct(conn *Connection) Request {
 	return conn.Request
-}
-
-func dbConnectionCacheToStruct(db *gorm.DB, r *http.Request, file *File) Endpoint {
-	endpoint := selectCache(db, r, file)
-	return endpoint
 }
 
 func readRequestBody(r *http.Request) (string, error) {

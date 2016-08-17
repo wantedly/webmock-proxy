@@ -21,7 +21,13 @@ func newResponse(r *http.Request) (*http.Response, error) {
 	if err != nil {
 		return goproxy.NewResponse(r, "application/json", http.StatusInternalServerError, errms), err
 	}
-	contentType := resp.Header.ContentType
+	var header interface{}
+	b := []byte(resp.Header)
+	err = jsonToStruct(b, &header)
+	if err != nil {
+		return goproxy.NewResponse(r, "application/json", http.StatusInternalServerError, errms), err
+	}
+	contentType := header.(map[string]interface{})["Content-Type"].([]interface{})[0].(string)
 	arr := strings.Fields(resp.Status)
 	code, _ := strconv.Atoi(arr[0])
 	body := resp.String
@@ -32,7 +38,14 @@ func newResponseFromDB(db *gorm.DB, r *http.Request) (*http.Response, error) {
 	file := getFileStruct(r)
 	endpoint := selectCache(db, r, file)
 	resp := endpoint.Connections[0].Response
-	contentType := resp.Header.ContentType
+	var header interface{}
+	b := []byte(resp.Header)
+	err := jsonToStruct(b, &header)
+	if err != nil {
+		return goproxy.NewResponse(r, "application/json", http.StatusInternalServerError, errms), err
+	}
+
+	contentType := header.(map[string]interface{})["Content-Type"].([]interface{})[0].(string)
 	arr := strings.Fields(resp.Status)
 	code, _ := strconv.Atoi(arr[0])
 	body := resp.String
@@ -52,11 +65,12 @@ func getRespStruct(f *File) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
-	conn, err := jsonToStruct(b)
+	var conn Connection
+	err = jsonToStruct(b, &conn)
 	if err != nil {
 		return Response{}, err
 	}
-	return parseRespStruct(conn), nil
+	return parseRespStruct(&conn), nil
 }
 
 func parseRespStruct(conn *Connection) Response {

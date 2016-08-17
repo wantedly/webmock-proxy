@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-	"unsafe"
 
 	"github.com/elazarl/goproxy"
 	"github.com/jinzhu/gorm"
@@ -31,11 +30,11 @@ func createCache(body string, b []byte, ctx *goproxy.ProxyCtx, db *gorm.DB) erro
 	req := createReqStruct(body, ctx)
 	resp := createRespStruct(b, ctx)
 	conn := Connection{Request: req, Response: resp, RecordedAt: ctx.Resp.Header.Get("Date")}
-	jsonStr, err := structToJSON(conn)
+	byteArr, err := structToJSON(conn)
 	if err != nil {
 		return err
 	}
-	if err = writeFile(jsonStr, file); err != nil {
+	if err = writeFile(string(byteArr), file); err != nil {
 		return err
 	}
 	var conns []Connection
@@ -58,7 +57,7 @@ func writeFile(str string, f *File) error {
 			return err
 		}
 	}
-	b := *(*[]byte)(unsafe.Pointer(&str))
+	b := []byte(str)
 	err := ioutil.WriteFile(f.Path, b, 0644)
 	if err != nil {
 		return err
