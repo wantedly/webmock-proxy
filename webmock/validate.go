@@ -6,7 +6,6 @@ import (
 
 	"github.com/elazarl/goproxy"
 	"github.com/jinzhu/gorm"
-	"github.com/k0kubun/pp"
 )
 
 func validateRequest(r *http.Request, body string, db *gorm.DB) bool {
@@ -25,7 +24,6 @@ func validateRequest(r *http.Request, body string, db *gorm.DB) bool {
 	var header interface{}
 	b := []byte(req.Header)
 	err := jsonToStruct(b, &header)
-	pp.Println(header)
 	if err != nil {
 		return false
 	}

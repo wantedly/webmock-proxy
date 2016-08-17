@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/elazarl/goproxy"
 	"github.com/jinzhu/gorm"
 )
 
@@ -25,14 +24,17 @@ type Endpoint struct {
 	Update      time.Time
 }
 
-func createCache(body string, b []byte, ctx *goproxy.ProxyCtx, db *gorm.DB) error {
-	file := getFileStruct(ctx.Req)
-	req := createReqStruct(body, ctx)
-	resp, err := createRespStruct(b, ctx)
+func createCache(body string, b []byte, req *http.Request, resp *http.Response, db *gorm.DB) error {
+	file := getFileStruct(req)
+	reqStruct, err := createReqStruct(body, req)
 	if err != nil {
 		return err
 	}
-	conn := Connection{Request: req, Response: resp, RecordedAt: ctx.Resp.Header.Get("Date")}
+	respStruct, err := createRespStruct(b, resp)
+	if err != nil {
+		return err
+	}
+	conn := Connection{Request: reqStruct, Response: respStruct, RecordedAt: resp.Header.Get("Date")}
 	byteArr, err := structToJSON(conn)
 	if err != nil {
 		return err

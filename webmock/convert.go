@@ -3,10 +3,8 @@ package webmock
 import (
 	"bytes"
 	"encoding/json"
-	"log"
+	"net/http"
 	"strings"
-
-	"github.com/elazarl/goproxy"
 )
 
 type Connection struct {
@@ -59,38 +57,40 @@ func jsonToStruct(b []byte, v interface{}) error {
 	return nil
 }
 
+// Webmock-proxy need to validate http response header because of using cache data.
+// But, after converting Request.Header (json str) into Struct using json.Marshal(),
+// Struct type has changed map[string][]interface{} (original: map[string][]string)
+// When validating http request, execute mapToMapInterface("http request header cache").
 func mapToMapInterface(m map[string][]string) map[string]interface{} {
 	mi := make(map[string]interface{}, len(m))
 	for k, v := range m {
-		mi[k] = v
+		si := make([]interface{}, len(v))
+		for vk, vv := range v {
+			si[vk] = vv
+		}
+		mi[k] = si
 	}
 	return mi
 }
 
-// FIXME:
-// *http.Request.Header => map[User-Agent:[Go-http-client/1.1] Accept-Encoding:[gzip]]
-// *goproxy.ProxyCtx.Req.Header => map[User-Agent:[Go-http-client/1.1]]
-func createReqStruct(body string, ctx *goproxy.ProxyCtx) Request {
-	log.Println(ctx.Req.Header)
-	method := ctx.Req.Method
-	host := ctx.Req.URL.Host
-	path := ctx.Req.URL.Path
-	header, err := structToJSON(mapToMapInterface(ctx.Req.Header), false)
+func createReqStruct(body string, req *http.Request) (Request, error) {
+	method := req.Method
+	host := req.URL.Host
+	path := req.URL.Path
+	header, err := structToJSON(req.Header, false)
 	if err != nil {
-		//TODO
-		log.Println(err)
+		return Request{}, err
 	}
-
-	return Request{Header: string(header), String: body, Method: method, URL: host + path}
+	return Request{Header: string(header), String: body, Method: method, URL: host + path}, nil
 }
 
-func createRespStruct(b []byte, ctx *goproxy.ProxyCtx) (Response, error) {
+func createRespStruct(b []byte, resp *http.Response) (Response, error) {
 	body := strings.TrimRight(string(b), "\n")
-	header, err := structToJSON(mapToMapInterface(ctx.Resp.Header), false)
+	header, err := structToJSON(resp.Header, false)
 	if err != nil {
 		return Response{}, err
 	}
-	return Response{Status: ctx.Resp.Status, Header: string(header), String: body}, nil
+	return Response{Status: resp.Status, Header: string(header), String: body}, nil
 }
 
 func createErrorMessage(str string) (string, error) {

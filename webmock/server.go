@@ -18,26 +18,36 @@ func Server() {
 		log.Fatal(err)
 	}
 
-	c := make(chan string, 1)
+	bCh := make(chan string, 1)
+	hCh := make(chan map[string][]string, 1)
 	env := os.Getenv("WEBMOCK_PROXY_RECORD")
 	if env == "1" {
 		log.Println("webmock-proxy run record mode.")
 		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 		proxy.OnRequest().DoFunc(
-			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-				body, err := readRequestBody(r)
+			func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+				header := make(map[string][]string)
+
+				// DeepCopy *http.Request.Header (type: map[string][]string)
+				for k, v := range req.Header {
+					header[k] = v
+				}
+				body, err := readRequestBody(req)
 				if err != nil {
 					log.Println(err)
 				}
-				c <- body
-				r.Body = ioutil.NopCloser(bytes.NewBufferString(body))
-				return r, nil
+				bCh <- body
+				hCh <- header
+				req.Body = ioutil.NopCloser(bytes.NewBufferString(body))
+				return req, nil
 			})
 		proxy.OnResponse().Do(
 			goproxy.HandleBytes(
 				func(b []byte, ctx *goproxy.ProxyCtx) []byte {
-					body := <-c
-					err := createCache(body, b, ctx, db)
+					reqBody := <-bCh
+					reqHeader := <-hCh
+					ctx.Req.Header = reqHeader
+					err = createCache(reqBody, b, ctx.Req, ctx.Resp, db)
 					if err != nil {
 						log.Println(err)
 					}
@@ -46,7 +56,6 @@ func Server() {
 	} else {
 		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 		proxy.OnRequest().DoFunc(
-			// FIXME: equal(*http.Request, *goproxy.ProxyCtx.Req) => false
 			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 				body, err := readRequestBody(r)
 				if err != nil {
