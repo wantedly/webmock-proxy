@@ -1,7 +1,19 @@
 package main
 
-import "github.com/wantedly/webmock-proxy/webmock"
+import (
+	"log"
+
+	"github.com/wantedly/webmock-proxy/webmock"
+)
 
 func main() {
-	webmock.Server()
+	config, err := webmock.NewConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	server, err := webmock.NewServer(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	server.Start()
 }

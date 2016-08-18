@@ -2,68 +2,20 @@ package webmock
 
 import (
 	"io/ioutil"
-	"net/http"
 	"os"
-	"time"
-
-	"github.com/jinzhu/gorm"
+	"path/filepath"
 )
 
-type File struct {
-	URL  string
-	Root string
-	Path string
-	Dir  string
-	Name string
-}
-
-type Endpoint struct {
-	ID          uint `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
-	URL         string
-	Connections []Connection
-	Update      time.Time
-}
-
-func createCache(body string, b []byte, req *http.Request, resp *http.Response, db *gorm.DB) error {
-	file := getFileStruct(req)
-	reqStruct, err := createReqStruct(body, req)
-	if err != nil {
-		return err
-	}
-	respStruct, err := createRespStruct(b, resp)
-	if err != nil {
-		return err
-	}
-	conn := Connection{Request: reqStruct, Response: respStruct, RecordedAt: resp.Header.Get("Date")}
-	byteArr, err := structToJSON(conn)
-	if err != nil {
-		return err
-	}
-	if err = writeFile(string(byteArr), file); err != nil {
-		return err
-	}
-	var conns []Connection
-	conns = append(conns, conn)
-	endpoint := &Endpoint{
-		URL:         file.URL,
-		Connections: conns,
-		Update:      time.Now(),
-	}
-	if err := insertCache(endpoint, db); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeFile(str string, f *File) error {
-	if !fileExists(f.Path) && !fileExists(f.Dir) {
-		err := mkdir(f.Dir)
+func writeFile(str, path string) error {
+	dir := filepath.Dir(path)
+	if !fileExists(path) && !fileExists(dir) {
+		err := mkdir(dir)
 		if err != nil {
 			return err
 		}
 	}
 	b := []byte(str)
-	err := ioutil.WriteFile(f.Path, b, 0644)
+	err := ioutil.WriteFile(path, b, 0644)
 	if err != nil {
 		return err
 	}
@@ -81,15 +33,6 @@ func readFile(path string) ([]byte, error) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func getFileStruct(r *http.Request) *File {
-	root := "webmock-cache/"
-	url := r.URL.Host + r.URL.Path
-	name := "cache.json"
-	dir := root + url
-	path := dir + "/" + name
-	return &File{url, root, path, dir, name}
 }
 
 func mkdir(dir string) error {

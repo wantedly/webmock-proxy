@@ -7,32 +7,7 @@ import (
 	"strings"
 )
 
-type Connection struct {
-	ID         uint     `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
-	EndpointID uint     `json:"-"`
-	Request    Request  `json:"request"`
-	Response   Response `json:"response"`
-	RecordedAt string   `json:"recorded_at"`
-}
-
-type Request struct {
-	ID           uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
-	ConnectionID uint   `json:"-"`
-	Header       string `json:"header"`
-	String       string `json:"string"`
-	Method       string `json:"method"`
-	URL          string `json:"url"`
-}
-
-type Response struct {
-	ID           uint   `gorm:"primary_key;AUTO_INCREMENT" json:"-"`
-	ConnectionID uint   `json:"-"`
-	Status       string `json:"status"`
-	Header       string `json:"header"`
-	String       string `json:"string"`
-}
-
-type ResponseBody struct {
+type responseBody struct {
 	Message string `json:"message"`
 }
 
@@ -73,7 +48,7 @@ func mapToMapInterface(m map[string][]string) map[string]interface{} {
 	return mi
 }
 
-func createReqStruct(body string, req *http.Request) (Request, error) {
+func requestStruct(body string, req *http.Request) (Request, error) {
 	method := req.Method
 	host := req.URL.Host
 	path := req.URL.Path
@@ -84,21 +59,11 @@ func createReqStruct(body string, req *http.Request) (Request, error) {
 	return Request{Header: string(header), String: body, Method: method, URL: host + path}, nil
 }
 
-func createRespStruct(b []byte, resp *http.Response) (Response, error) {
+func responseStruct(b []byte, resp *http.Response) (Response, error) {
 	body := strings.TrimRight(string(b), "\n")
 	header, err := structToJSON(resp.Header, false)
 	if err != nil {
 		return Response{}, err
 	}
 	return Response{Status: resp.Status, Header: string(header), String: body}, nil
-}
-
-func createErrorMessage(str string) (string, error) {
-	mes := "Not found webmock-proxy cache. URL: " + str
-	body := &ResponseBody{Message: mes}
-	byteArr, err := structToJSON(body)
-	if err != nil {
-		return "", err
-	}
-	return string(byteArr), nil
 }

@@ -2,81 +2,144 @@ package webmock
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/elazarl/goproxy"
+	"github.com/jinzhu/gorm"
 )
 
-func Server() {
-	proxy := goproxy.NewProxyHttpServer()
+type Server struct {
+	config *Config
+	db     *gorm.DB
+	proxy  *goproxy.ProxyHttpServer
+	bodyCh chan string
+	headCh chan map[string][]string
+}
 
-	db, err := Connect()
+func initDB(config *Config) (*gorm.DB, error) {
+	if config.local == false {
+		db, err := NewDBConnection()
+		if err != nil {
+			return nil, fmt.Errorf("Faild to connect database: %v", err)
+		}
+		log.Println("Use db.")
+		return db, nil
+	}
+	log.Println("Use local cache files.")
+	return nil, nil
+}
+
+func NewServer(config *Config) (*Server, error) {
+	db, err := initDB(config)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
+	}
+	var bodyCh chan string
+	var headCh chan map[string][]string
+	if config.record == true {
+		log.Println("All http/s request is cached.")
+		bodyCh = make(chan string, 1)
+		headCh = make(chan map[string][]string, 1)
 	}
 
-	bCh := make(chan string, 1)
-	hCh := make(chan map[string][]string, 1)
-	env := os.Getenv("WEBMOCK_PROXY_RECORD")
-	if env == "1" {
-		log.Println("webmock-proxy run record mode.")
-		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
-		proxy.OnRequest().DoFunc(
-			func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-				header := make(map[string][]string)
+	return &Server{
+		config: config,
+		db:     db,
+		proxy:  goproxy.NewProxyHttpServer(),
+		bodyCh: bodyCh,
+		headCh: headCh,
+	}, nil
+}
 
-				// DeepCopy *http.Request.Header (type: map[string][]string)
-				for k, v := range req.Header {
-					header[k] = v
-				}
-				body, err := readRequestBody(req)
+func (s *Server) connectionCacheHandler() {
+	s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	s.proxy.OnRequest().DoFunc(
+		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+
+			// DeepCopy *http.Request.Header (type: map[string][]string)
+			reqHeader := make(map[string][]string, len(req.Header))
+			for k, v := range req.Header {
+				reqHeader[k] = v
+			}
+
+			reqBody, err := ioReader(req.Body)
+			if err != nil {
+				log.Println(err)
+			}
+			s.bodyCh <- reqBody
+			s.headCh <- reqHeader
+			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+			return req, nil
+		})
+	s.proxy.OnResponse().Do(
+		goproxy.HandleBytes(
+			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
+				reqBody := <-s.bodyCh
+				reqHeader := <-s.headCh
+				ctx.Req.Header = reqHeader
+				err := createCache(reqBody, b, ctx.Req, ctx.Resp, s)
 				if err != nil {
 					log.Println(err)
 				}
-				bCh <- body
-				hCh <- header
-				req.Body = ioutil.NopCloser(bytes.NewBufferString(body))
-				return req, nil
-			})
-		proxy.OnResponse().Do(
-			goproxy.HandleBytes(
-				func(b []byte, ctx *goproxy.ProxyCtx) []byte {
-					reqBody := <-bCh
-					reqHeader := <-hCh
-					ctx.Req.Header = reqHeader
-					err = createCache(reqBody, b, ctx.Req, ctx.Resp, db)
+				return b
+			}))
+}
+
+func (s *Server) mockOnlyHandler() {
+	s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	s.proxy.OnRequest().DoFunc(
+		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			reqBody, err := ioReader(req.Body)
+			if err != nil {
+				log.Println(err)
+			}
+			conn, err := NewConnection(req, s)
+			if err != nil {
+				log.Println(err)
+			}
+			var resp *http.Response
+			if conn != nil {
+				is, err := validateRequest(req, conn, reqBody)
+				if err != nil {
+					log.Println(err)
+				}
+				if is == true {
+					resp, err = createHttpResponse(req, conn)
 					if err != nil {
 						log.Println(err)
 					}
-					return b
-				}))
+					req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+					return req, resp
+				}
+			}
+			resp, err = createHttpErrorResponse(req)
+			if err != nil {
+				log.Println(err)
+			}
+			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+			return req, resp
+		})
+}
+
+func ioReader(io io.ReadCloser) (string, error) {
+	defer io.Close()
+	body, err := ioutil.ReadAll(io)
+	if err != nil {
+		return string(body), err
+	}
+	return string(body), nil
+}
+
+func (s *Server) Start() {
+	if s.config.record == true {
+		s.connectionCacheHandler()
 	} else {
-		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
-		proxy.OnRequest().DoFunc(
-			func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-				body, err := readRequestBody(r)
-				if err != nil {
-					log.Println(err)
-				}
-				var resp *http.Response
-				if validateRequest(r, body, db) {
-					// resp, err = newResponse(r)
-					resp, err = newResponseFromDB(db, r)
-					if err != nil {
-						log.Println(err)
-					}
-				} else {
-					resp, err = newErrorResponse(r)
-					if err != nil {
-						log.Println(err)
-					}
-				}
-				r.Body = ioutil.NopCloser(bytes.NewBufferString(body))
-				return r, resp
-			})
+		s.mockOnlyHandler()
 	}
-	http.ListenAndServe(":8080", proxy)
+	log.Println("Running...")
+	http.ListenAndServe(":8080", s.proxy)
 }
