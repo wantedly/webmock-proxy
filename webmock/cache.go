@@ -1,6 +1,7 @@
 package webmock
 
 import (
+	"log"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -31,6 +32,7 @@ func createCache(body string, b []byte, req *http.Request, resp *http.Response, 
 		if err := writeFile(string(byteArr), dst); err != nil {
 			return err
 		}
+		log.Printf("[INFO] Create HTTP/S connection cache.")
 		return nil
 	}
 	var conns []Connection
@@ -51,10 +53,13 @@ func createCache(body string, b []byte, req *http.Request, resp *http.Response, 
 		}
 		endpoint.Connections = conns
 		updateEndpoint(ce, endpoint, s.db)
+
+		log.Printf("[INFO] Update HTTP/S connection cache.")
 		return nil
 	}
 	if err := insertEndpoint(endpoint, s.db); err != nil {
 		return err
 	}
+	log.Printf("[INFO] Create HTTP/S connection cache.")
 	return nil
 }

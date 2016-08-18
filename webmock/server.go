@@ -23,12 +23,12 @@ func initDB(config *Config) (*gorm.DB, error) {
 	if config.local == false {
 		db, err := NewDBConnection()
 		if err != nil {
-			return nil, fmt.Errorf("Faild to connect database: %v", err)
+			return nil, fmt.Errorf("[ERROR] Faild to connect database: %v", err)
 		}
-		log.Println("Use db.")
+		log.Println("[INFO] Use database.")
 		return db, nil
 	}
-	log.Println("Use local cache files.")
+	log.Println("[INFO] Use local cache files.")
 	return nil, nil
 }
 
@@ -40,7 +40,7 @@ func NewServer(config *Config) (*Server, error) {
 	var bodyCh chan string
 	var headCh chan map[string][]string
 	if config.record == true {
-		log.Println("All http/s request is cached.")
+		log.Println("[INFO] All HTTP/S request and response is cached.")
 		bodyCh = make(chan string, 1)
 		headCh = make(chan map[string][]string, 1)
 	}
@@ -58,6 +58,7 @@ func (s *Server) connectionCacheHandler() {
 	s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 	s.proxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
 
 			// DeepCopy *http.Request.Header (type: map[string][]string)
 			reqHeader := make(map[string][]string, len(req.Header))
@@ -67,7 +68,7 @@ func (s *Server) connectionCacheHandler() {
 
 			reqBody, err := ioReader(req.Body)
 			if err != nil {
-				log.Println(err)
+				log.Printf("[ERROR] %v", err)
 			}
 			s.bodyCh <- reqBody
 			s.headCh <- reqHeader
@@ -77,13 +78,15 @@ func (s *Server) connectionCacheHandler() {
 	s.proxy.OnResponse().Do(
 		goproxy.HandleBytes(
 			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
+				log.Printf("[INFO] resp %s", ctx.Resp.Status)
 				reqBody := <-s.bodyCh
 				reqHeader := <-s.headCh
 				ctx.Req.Header = reqHeader
 				err := createCache(reqBody, b, ctx.Req, ctx.Resp, s)
 				if err != nil {
-					log.Println(err)
+					log.Printf("[ERROR] %v", err)
 				}
+				fmt.Println(string(b))
 				return b
 			}))
 }
@@ -92,24 +95,25 @@ func (s *Server) mockOnlyHandler() {
 	s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 	s.proxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
 			reqBody, err := ioReader(req.Body)
 			if err != nil {
-				log.Println(err)
+				log.Printf("[ERROR] %v", err)
 			}
 			conn, err := NewConnection(req, s)
 			if err != nil {
-				log.Println(err)
+				log.Printf("[ERROR] %v", err)
 			}
 			var resp *http.Response
 			if conn != nil {
 				is, err := validateRequest(req, conn, reqBody)
 				if err != nil {
-					log.Println(err)
+					log.Printf("[ERROR] %v", err)
 				}
 				if is == true {
 					resp, err = createHttpResponse(req, conn)
 					if err != nil {
-						log.Println(err)
+						log.Printf("[ERROR] %v", err)
 					}
 					req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
 					return req, resp
@@ -117,7 +121,7 @@ func (s *Server) mockOnlyHandler() {
 			}
 			resp, err = createHttpErrorResponse(req)
 			if err != nil {
-				log.Println(err)
+				log.Printf("[ERROR] %v", err)
 			}
 			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
 			return req, resp
@@ -130,6 +134,6 @@ func (s *Server) Start() {
 	} else {
 		s.mockOnlyHandler()
 	}
-	log.Println("Running...")
+	log.Println("[INFO] Running...")
 	http.ListenAndServe(":8080", s.proxy)
 }

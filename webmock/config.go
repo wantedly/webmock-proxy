@@ -32,7 +32,7 @@ func NewConfig() (*Config, error) {
 		var err error
 		port, err = strconv.Atoi(portStr)
 		if err != nil {
-			return nil, fmt.Errorf("Illegal value in $WEBMOCK_PROXY_PORT: %v", err)
+			return nil, fmt.Errorf("[ERROR] Illegal value in $WEBMOCK_PROXY_PORT: %v", err)
 		}
 	}
 	if str := os.Getenv("WEBMOCK_PROXY_CACHE_DIR"); str != "" {
