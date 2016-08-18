@@ -15,8 +15,8 @@ type Server struct {
 	config *Config
 	db     *gorm.DB
 	proxy  *goproxy.ProxyHttpServer
-	bodyCh chan string
-	headCh chan map[string][]string
+	body   string
+	head   map[string][]string
 }
 
 func NewServer(config *Config) (*Server, error) {
@@ -24,20 +24,13 @@ func NewServer(config *Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	var bodyCh chan string
-	var headCh chan map[string][]string
-	if config.record == true {
-		log.Println("[INFO] All HTTP/S request and response is cached.")
-		bodyCh = make(chan string, 1)
-		headCh = make(chan map[string][]string, 1)
-	}
 
 	return &Server{
 		config: config,
 		db:     db,
 		proxy:  goproxy.NewProxyHttpServer(),
-		bodyCh: bodyCh,
-		headCh: headCh,
+		body:   "",
+		head:   make(map[string][]string),
 	}, nil
 }
 
@@ -70,8 +63,8 @@ func (s *Server) connectionCacheHandler() {
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
 			}
-			s.bodyCh <- reqBody
-			s.headCh <- reqHeader
+			s.body = reqBody
+			s.head = reqHeader
 			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
 			return req, nil
 		})
@@ -79,8 +72,8 @@ func (s *Server) connectionCacheHandler() {
 		goproxy.HandleBytes(
 			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
 				log.Printf("[INFO] resp %s", ctx.Resp.Status)
-				reqBody := <-s.bodyCh
-				reqHeader := <-s.headCh
+				reqBody := s.body
+				reqHeader := s.head
 				ctx.Req.Header = reqHeader
 				err := createCache(reqBody, b, ctx.Req, ctx.Resp, s)
 				if err != nil {
@@ -130,6 +123,7 @@ func (s *Server) mockOnlyHandler() {
 
 func (s *Server) Start() {
 	if s.config.record == true {
+		log.Println("[INFO] All HTTP/S request and response is cached.")
 		s.connectionCacheHandler()
 	} else {
 		s.mockOnlyHandler()
