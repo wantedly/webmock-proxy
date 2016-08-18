@@ -43,7 +43,7 @@ func NewConnection(req *http.Request, s *Server) (*Connection, error) {
 	var (
 		root = "webmock-cache/"
 		url  = req.URL.Host + req.URL.Path
-		file = "cache.json"
+		file = req.Method + ".json"
 		dst  = filepath.Join(root, url, file)
 	)
 	if s.config.local == true {

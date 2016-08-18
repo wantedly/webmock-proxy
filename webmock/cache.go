@@ -10,7 +10,7 @@ func createCache(body string, b []byte, req *http.Request, resp *http.Response, 
 	var (
 		root = "webmock-cache/"
 		url  = req.URL.Host + req.URL.Path
-		file = "cache.json"
+		file = req.Method + ".json"
 		dst  = filepath.Join(root, url, file)
 	)
 
