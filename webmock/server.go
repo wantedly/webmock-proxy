@@ -3,7 +3,6 @@ package webmock
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -123,15 +122,6 @@ func (s *Server) mockOnlyHandler() {
 			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
 			return req, resp
 		})
-}
-
-func ioReader(io io.ReadCloser) (string, error) {
-	defer io.Close()
-	body, err := ioutil.ReadAll(io)
-	if err != nil {
-		return string(body), err
-	}
-	return string(body), nil
 }
 
 func (s *Server) Start() {
