@@ -41,11 +41,10 @@ type Response struct {
 
 func NewConnection(req *http.Request, s *Server) (*Connection, error) {
 	var (
-		root = "webmock-cache"
+		root = "webmock-cache/"
 		url  = req.URL.Host + req.URL.Path
-		dir  = root + url
 		file = "cache.json"
-		dst  = filepath.Join(dir, file)
+		dst  = filepath.Join(root, url, file)
 	)
 	if s.config.local == true {
 		b, err := readFile(dst)
@@ -59,7 +58,7 @@ func NewConnection(req *http.Request, s *Server) (*Connection, error) {
 		}
 		return &conn, nil
 	}
-	endpoint := findEndpoint(s.db, req.Method, url)
+	endpoint := findEndpoint(req.Method, url, s.db)
 	if len(endpoint.Connections) == 0 {
 		return nil, nil
 	}

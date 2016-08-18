@@ -8,11 +8,10 @@ import (
 
 func createCache(body string, b []byte, req *http.Request, resp *http.Response, s *Server) error {
 	var (
-		root = "webmock-cache"
+		root = "webmock-cache/"
 		url  = req.URL.Host + req.URL.Path
-		dir  = root + url
 		file = "cache.json"
-		dst  = filepath.Join(dir, file)
+		dst  = filepath.Join(root, url, file)
 	)
 
 	reqStruct, err := requestStruct(body, req)
@@ -28,6 +27,12 @@ func createCache(body string, b []byte, req *http.Request, resp *http.Response, 
 	if err != nil {
 		return err
 	}
+	if s.config.local == true {
+		if err := writeFile(string(byteArr), dst); err != nil {
+			return err
+		}
+		return nil
+	}
 	var conns []Connection
 	conns = append(conns, conn)
 	endpoint := &Endpoint{
@@ -35,10 +40,18 @@ func createCache(body string, b []byte, req *http.Request, resp *http.Response, 
 		Connections: conns,
 		Update:      time.Now(),
 	}
-	if s.config.local == true {
-		if err := writeFile(string(byteArr), dst); err != nil {
-			return err
+	ce := readEndpoint(url, s.db)
+	if len(ce.Connections) != 0 {
+		for _, v := range ce.Connections {
+			deleteConnection(&v, s.db)
+			if v.Request.Method == req.Method {
+				continue
+			}
+			conns = append(conns, v)
 		}
+		endpoint.Connections = conns
+		updateEndpoint(ce, endpoint, s.db)
+		return nil
 	}
 	if err := insertEndpoint(endpoint, s.db); err != nil {
 		return err
