@@ -19,19 +19,6 @@ type Server struct {
 	headCh chan map[string][]string
 }
 
-func initDB(config *Config) (*gorm.DB, error) {
-	if config.local == false {
-		db, err := NewDBConnection()
-		if err != nil {
-			return nil, fmt.Errorf("[ERROR] Faild to connect database: %v", err)
-		}
-		log.Println("[INFO] Use database.")
-		return db, nil
-	}
-	log.Println("[INFO] Use local cache files.")
-	return nil, nil
-}
-
 func NewServer(config *Config) (*Server, error) {
 	db, err := initDB(config)
 	if err != nil {
@@ -52,6 +39,19 @@ func NewServer(config *Config) (*Server, error) {
 		bodyCh: bodyCh,
 		headCh: headCh,
 	}, nil
+}
+
+func initDB(config *Config) (*gorm.DB, error) {
+	if config.local == false {
+		db, err := NewDBConnection()
+		if err != nil {
+			return nil, fmt.Errorf("[ERROR] Faild to connect database: %v", err)
+		}
+		log.Println("[INFO] Use database.")
+		return db, nil
+	}
+	log.Println("[INFO] Use local cache files.")
+	return nil, nil
 }
 
 func (s *Server) connectionCacheHandler() {
