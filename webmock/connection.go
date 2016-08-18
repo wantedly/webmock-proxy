@@ -41,7 +41,7 @@ type Response struct {
 
 func NewConnection(req *http.Request, s *Server) (*Connection, error) {
 	var (
-		root = "webmock-cache/"
+		root = s.config.cacheDir + "/"
 		url  = req.URL.Host + req.URL.Path
 		file = req.Method + ".json"
 		dst  = filepath.Join(root, url, file)

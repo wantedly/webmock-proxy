@@ -4,18 +4,21 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
-	record = false
-	local  = false
-	port   = 8080
+	record   = false
+	local    = false
+	port     = 8080
+	cacheDir = "cache"
 )
 
 type Config struct {
-	record bool
-	local  bool
-	port   int
+	record   bool
+	local    bool
+	port     int
+	cacheDir string
 }
 
 func NewConfig() (*Config, error) {
@@ -32,5 +35,14 @@ func NewConfig() (*Config, error) {
 			return nil, fmt.Errorf("Illegal value in $WEBMOCK_PROXY_PORT: %v", err)
 		}
 	}
-	return &Config{record: record, local: local, port: port}, nil
+	if str := os.Getenv("WEBMOCK_PROXY_CACHE_DIR"); str != "" {
+		str := strings.TrimRight(str, "/")
+		cacheDir = str
+	}
+	return &Config{
+		record:   record,
+		local:    local,
+		port:     port,
+		cacheDir: cacheDir,
+	}, nil
 }

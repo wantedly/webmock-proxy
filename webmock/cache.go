@@ -8,7 +8,7 @@ import (
 
 func createCache(body string, b []byte, req *http.Request, resp *http.Response, s *Server) error {
 	var (
-		root = "webmock-cache/"
+		root = s.config.cacheDir + "/"
 		url  = req.URL.Host + req.URL.Path
 		file = req.Method + ".json"
 		dst  = filepath.Join(root, url, file)
