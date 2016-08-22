@@ -15,7 +15,7 @@ $ make
 Run webmock-proxy "Record" mode.
 
 ```
-$ WEBMOCK_PROXY_RECORD=true bin/webmock-proxy
+$ WEBMOCK_PROXY_RECORD=1 bin/webmock-proxy
 ```
 
 All HTTP/S connection is recorded and output simple JSON file.
