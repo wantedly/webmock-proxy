@@ -8,17 +8,21 @@ import (
 )
 
 var (
-	record   = false
-	local    = false
-	port     = 8080
-	cacheDir = "cache"
+	record    = false
+	local     = false
+	port      = 8080
+	cacheDir  = "cache"
+	syncCache = false
+	masterURL = ""
 )
 
 type Config struct {
-	record   bool
-	local    bool
-	port     int
-	cacheDir string
+	record    bool
+	local     bool
+	port      int
+	cacheDir  string
+	syncCache bool
+	masterURL string
 }
 
 func NewConfig() (*Config, error) {
@@ -27,6 +31,14 @@ func NewConfig() (*Config, error) {
 	}
 	if os.Getenv("WEBMOCK_PROXY_LOCAL") == "1" {
 		local = true
+		if os.Getenv("WEBMOCK_PROXY_SYNC_CACHE") == "1" {
+			if url := os.Getenv("WEBMOCK_PROXY_MASTER_URL"); url != "" {
+				masterURL = url
+				syncCache = true
+			} else {
+				return nil, fmt.Errorf("[ERROR] Prease set $WEBMOCK_PROXY_MASTER_URL")
+			}
+		}
 	}
 	if portStr := os.Getenv("WEBMOCK_PROXY_PORT"); portStr != "" {
 		var err error
@@ -40,9 +52,11 @@ func NewConfig() (*Config, error) {
 		cacheDir = str
 	}
 	return &Config{
-		record:   record,
-		local:    local,
-		port:     port,
-		cacheDir: cacheDir,
+		record:    record,
+		local:     local,
+		port:      port,
+		cacheDir:  cacheDir,
+		syncCache: syncCache,
+		masterURL: masterURL,
 	}, nil
 }

@@ -20,9 +20,22 @@ type Server struct {
 }
 
 func NewServer(config *Config) (*Server, error) {
-	db, err := initDB(config)
-	if err != nil {
-		return nil, err
+	var db *gorm.DB
+	var err error
+	if config.local == true {
+		if config.syncCache == true {
+			err := sync(config)
+			if err != nil {
+				return nil, fmt.Errorf("[ERROR] Faild to sync cache: %v", err)
+			}
+		}
+		log.Println("[INFO] Use local cache files.")
+	} else {
+		db, err = NewDBConnection()
+		if err != nil {
+			return nil, fmt.Errorf("[ERROR] Faild to connect database: %v", err)
+		}
+		log.Println("[INFO] Use database.")
 	}
 
 	return &Server{
@@ -32,19 +45,6 @@ func NewServer(config *Config) (*Server, error) {
 		body:   "",
 		head:   make(map[string][]string),
 	}, nil
-}
-
-func initDB(config *Config) (*gorm.DB, error) {
-	if config.local == false {
-		db, err := NewDBConnection()
-		if err != nil {
-			return nil, fmt.Errorf("[ERROR] Faild to connect database: %v", err)
-		}
-		log.Println("[INFO] Use database.")
-		return db, nil
-	}
-	log.Println("[INFO] Use local cache files.")
-	return nil, nil
 }
 
 func (s *Server) connectionCacheHandler() {
@@ -121,6 +121,18 @@ func (s *Server) mockOnlyHandler() {
 		})
 }
 
+func (s *Server) NonProxyHandler() {
+	s.proxy.NonproxyHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		pattern := req.URL.Path
+		switch pattern {
+		case "/":
+			fmt.Fprintf(w, "")
+		default:
+			http.Error(w, "Not Found", 404)
+		}
+	})
+}
+
 func (s *Server) Start() {
 	if s.config.record == true {
 		log.Println("[INFO] All HTTP/S request and response is cached.")
@@ -128,6 +140,7 @@ func (s *Server) Start() {
 	} else {
 		s.mockOnlyHandler()
 	}
+	s.NonProxyHandler()
 	log.Println("[INFO] Running...")
 	http.ListenAndServe(":8080", s.proxy)
 }
