@@ -72,3 +72,15 @@ func newResponse(req *http.Request, resp *Response, header interface{}) (*http.R
 	r.Body = ioutil.NopCloser(buf)
 	return r, nil
 }
+
+func createHttpResponseWriter(w http.ResponseWriter, mes string, status int) {
+	body := &responseBody{Message: mes}
+	byteArr, err := structToJSON(body)
+	if err != nil {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "Faild to create response body.")
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	fmt.Fprintf(w, string(byteArr))
+}

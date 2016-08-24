@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -72,7 +71,7 @@ func (s *Server) connectionCacheHandler() {
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
 			}
-			s.body = reqBody
+			s.body = string(reqBody)
 			s.head = reqHeader
 			return req, nil
 		})
@@ -108,7 +107,7 @@ func (s *Server) mockOnlyHandler() {
 				log.Printf("[ERROR] %v", err)
 			}
 			if conn != nil {
-				is, err := validateRequest(req, conn, reqBody)
+				is, err := validateRequest(req, conn, string(reqBody))
 				if err != nil {
 					log.Printf("[ERROR] %v", err)
 				}
@@ -126,27 +125,17 @@ func (s *Server) mockOnlyHandler() {
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
 			}
-			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
 			return req, resp
 		})
 }
 
-// {callback:"http://localhost:3000/api/users" endpoint:"https://example.com/api/users", method:"GET"}
 func (s *Server) NonProxyHandler(config *Config) {
 	s.proxy.NonproxyHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		pattern := req.URL.Path
 		switch pattern {
 		case "/":
 			if req.Method != "POST" {
-				mes := "Not Found"
-				respBody := &responseBody{Message: mes}
-				byteArr, err := structToJSON(respBody)
-				if err != nil {
-					fmt.Fprintln(w, err)
-				}
-				w.Header().Set("Content-Type", "application/json; charset=utf-8")
-				w.WriteHeader(404)
-				fmt.Fprintf(w, string(byteArr))
+				createHttpResponseWriter(w, "Not Found", 404)
 				return
 			}
 
@@ -155,36 +144,27 @@ func (s *Server) NonProxyHandler(config *Config) {
 				fmt.Fprintln(w, err)
 				return
 			}
-			var rbody interface{}
-			err = jsonToStruct([]byte(reqBody), &rbody)
+			var jsonReqBody interface{}
+			err = jsonToStruct([]byte(reqBody), &jsonReqBody)
 			if err != nil {
-				fmt.Fprintln(w, err)
+				createHttpResponseWriter(w, "Bad request", 404)
 				return
 			}
 
-			callbackURL := rbody.(map[string]interface{})["callback"].(string)
-			endpoint := rbody.(map[string]interface{})["endpoint"].(string)
-			method := rbody.(map[string]interface{})["method"].(string)
-			if (callbackURL == "") && (endpoint == "") && (method == "") {
-				mes := "Not Found"
-				respBody := &responseBody{Message: mes}
-				byteArr, err := structToJSON(respBody)
-				if err != nil {
-					fmt.Fprintln(w, err)
-				}
-				w.Header().Set("Content-Type", "application/json; charset=utf-8")
-				w.WriteHeader(404)
-				fmt.Fprintf(w, string(byteArr))
+			callbackURL := jsonReqBody.(map[string]interface{})["callback"].(string)
+			endpointURL := jsonReqBody.(map[string]interface{})["endpoint"].(string)
+			method := jsonReqBody.(map[string]interface{})["method"].(string)
+			if (callbackURL == "") && (endpointURL == "") && (method == "") {
+				createHttpResponseWriter(w, "Bad request", 404)
+				return
 			}
 
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.WriteHeader(200)
-
 			//e.g. https://api.example.com/users => [https api.example.com/users]
-			x := strings.Split(endpoint, "://")
+			x := strings.Split(endpointURL, "://")
 
 			// e.g. api.example.com/users => [api.example.com users]
 			x2 := strings.SplitN(x[1], "/", 2)
+			callbackURL = callbackURL + "/" + x2[1]
 			scheme := x[0]
 			var url string
 			switch scheme {
@@ -193,26 +173,38 @@ func (s *Server) NonProxyHandler(config *Config) {
 			case "https":
 				url = filepath.Join(x2[0]+":443", x2[1])
 			}
-			dst := filepath.Join(config.cacheDir, url, method+".json")
-			b, err := readFile(dst)
-			if err != nil {
-				return
-			}
+
 			var conn Connection
-			err = jsonToStruct(b, &conn)
-			if err != nil {
-				return
+			if s.config.local == true {
+				dst := filepath.Join(config.cacheDir, url, method+".json")
+				b, err := readFile(dst)
+				if err != nil {
+					createHttpResponseWriter(w, "Don't exist http connection cache", 404)
+					return
+				}
+				err = jsonToStruct(b, &conn)
+				if err != nil {
+					createHttpResponseWriter(w, "Faild to create callback request body", 500)
+					return
+				}
+			} else {
+				endpoint := findEndpoint(req.Method, url, s.db)
+				if len(endpoint.Connections) == 0 {
+					createHttpResponseWriter(w, "Don't exist http connection cache", 404)
+					return
+				}
 			}
 			var header interface{}
-			b = []byte(conn.Request.Header)
+			b := []byte(conn.Request.Header)
 			err = jsonToStruct(b, &header)
 			if err != nil {
+				createHttpResponseWriter(w, "Faild to create callback request body", 500)
 				return
 			}
 
 			callbackReq, err := http.NewRequest(
 				method,
-				endpoint,
+				callbackURL,
 				bytes.NewBuffer([]byte(conn.Request.String)),
 			)
 			for k, v := range header.(map[string]interface{}) {
@@ -223,15 +215,17 @@ func (s *Server) NonProxyHandler(config *Config) {
 			client := new(http.Client)
 			resp, err := client.Do(callbackReq)
 			if err != nil {
+				createHttpResponseWriter(w, "Faild to callback", 500)
 				return
 			}
-			defer resp.Body.Close()
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := ioReader(resp.Body)
 			if err != nil {
+				createHttpResponseWriter(w, "Faild to read callback response body", 500)
 				return
 			}
 			respStruct, err := responseStruct(body, resp)
 			if err != nil {
+				createHttpResponseWriter(w, "Faild to read callback response", 500)
 				return
 			}
 			var mes string
@@ -240,15 +234,12 @@ func (s *Server) NonProxyHandler(config *Config) {
 			} else {
 				mes = "Invalid"
 			}
+			createHttpResponseWriter(w, mes, 200)
+			return
 
-			nnbody := &responseBody{Message: mes}
-			byteArr, err := structToJSON(nnbody)
-			if err != nil {
-				fmt.Fprintln(w, err)
-			}
-			fmt.Fprintf(w, string(byteArr))
 		default:
-			http.Error(w, "Not Found", 404)
+			createHttpResponseWriter(w, "Not Found", 404)
+			return
 		}
 	})
 }

@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 )
 
-func ioReader(io io.ReadCloser) (string, error) {
+func ioReader(io io.ReadCloser) ([]byte, error) {
 	defer io.Close()
-	body, err := ioutil.ReadAll(io)
+	b, err := ioutil.ReadAll(io)
 	if err != nil {
-		return string(body), err
+		return b, err
 	}
-	return string(body), nil
+	return b, nil
 }
