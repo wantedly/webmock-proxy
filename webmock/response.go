@@ -51,10 +51,13 @@ func errorMessage(url string) (string, error) {
 func newResponse(req *http.Request, resp *Response, header interface{}) (*http.Response, error) {
 	r := &http.Response{}
 	r.Request = req
+	r.TransferEncoding = req.TransferEncoding
 	r.Header = make(http.Header)
 	for k, v := range header.(map[string]interface{}) {
 		for _, vv := range v.([]interface{}) {
-			r.Header.Add(k, vv.(string))
+			if k != "Content-Length" {
+				r.Header.Add(k, vv.(string))
+			}
 		}
 	}
 	r.Status = resp.Status

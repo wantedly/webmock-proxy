@@ -67,7 +67,7 @@ func (s *Server) connectionCacheHandler() {
 			}
 			s.body = reqBody
 			s.head = reqHeader
-			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+
 			return req, nil
 		})
 	s.proxy.OnResponse().Do(
@@ -91,6 +91,7 @@ func (s *Server) mockOnlyHandler() {
 	s.proxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
+
 			reqBody, err := ioReader(req.Body)
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
@@ -99,7 +100,6 @@ func (s *Server) mockOnlyHandler() {
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
 			}
-			var resp *http.Response
 			if conn != nil {
 				is, err := validateRequest(req, conn, reqBody)
 				if err != nil {
@@ -107,16 +107,15 @@ func (s *Server) mockOnlyHandler() {
 				}
 				if is == true {
 					log.Printf("[INFO] Create HTTP/S response using connection cache.")
-					resp, err = createHttpResponse(req, conn)
+					resp, err := createHttpResponse(req, conn)
 					if err != nil {
 						log.Printf("[ERROR] %v", err)
 					}
-					req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
 					return req, resp
 				}
 			}
 			log.Printf("[INFO] Not match http connection cache.")
-			resp, err = createHttpErrorResponse(req)
+			resp, err := createHttpErrorResponse(req)
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
 			}

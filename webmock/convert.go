@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
 type responseBody struct {
@@ -60,10 +59,9 @@ func requestStruct(body string, req *http.Request) (Request, error) {
 }
 
 func responseStruct(b []byte, resp *http.Response) (Response, error) {
-	body := strings.TrimRight(string(b), "\n")
 	header, err := structToJSON(resp.Header, false)
 	if err != nil {
 		return Response{}, err
 	}
-	return Response{Status: resp.Status, Header: string(header), String: body}, nil
+	return Response{Status: resp.Status, Header: string(header), String: string(b)}, nil
 }

@@ -12,10 +12,15 @@ func validateRequest(req *http.Request, conn *Connection, body string) (bool, er
 	if err != nil {
 		return false, err
 	}
+	if header.(map[string]interface{})["Proxy-Connection"] != nil {
+		delete(header.(map[string]interface{}), "Proxy-Connection")
+	}
+
 	if (body == conn.Request.String) &&
 		(reflect.DeepEqual(mapToMapInterface(req.Header), header) == true) &&
-		(req.Method == conn.Request.Method) {
+		req.Method == conn.Request.Method {
 		return true, nil
+
 	}
 	return false, nil
 }
