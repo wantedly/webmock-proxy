@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -245,6 +246,14 @@ func (s *Server) NonProxyHandler(config *Config) {
 }
 
 func (s *Server) Start() {
+	if s.config.importCache != "" {
+		err := cacheImport(s)
+		if err != nil {
+			log.Fatal("[ERROR] Faild to import cache: ", err)
+		}
+		log.Println("[INFO] Success to import cache")
+		os.Exit(0)
+	}
 	if s.config.record == true {
 		log.Println("[INFO] All HTTP/S request and response is cached.")
 		s.connectionCacheHandler()

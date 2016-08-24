@@ -8,19 +8,21 @@ import (
 )
 
 var (
-	record    = false
-	local     = false
-	port      = ":8080"
-	cacheDir  = "cache"
-	masterURL = ""
+	record      = false
+	local       = false
+	port        = ":8080"
+	cacheDir    = "cache"
+	masterURL   = ""
+	importCache = ""
 )
 
 type Config struct {
-	record    bool
-	local     bool
-	port      string
-	cacheDir  string
-	masterURL string
+	record      bool
+	local       bool
+	port        string
+	cacheDir    string
+	masterURL   string
+	importCache string
 }
 
 func NewConfig() (*Config, error) {
@@ -44,11 +46,15 @@ func NewConfig() (*Config, error) {
 		str := strings.TrimRight(str, "/")
 		cacheDir = str
 	}
+	if dir := os.Getenv("WEBMOCK_PROXY_IMPORT_CACHE"); dir != "" {
+		importCache = dir
+	}
 	return &Config{
-		record:    record,
-		local:     local,
-		port:      port,
-		cacheDir:  cacheDir,
-		masterURL: masterURL,
+		record:      record,
+		local:       local,
+		port:        port,
+		cacheDir:    cacheDir,
+		masterURL:   masterURL,
+		importCache: importCache,
 	}, nil
 }
