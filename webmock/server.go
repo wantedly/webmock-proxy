@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/elazarl/goproxy"
 	"github.com/jinzhu/gorm"
@@ -123,12 +125,122 @@ func (s *Server) mockOnlyHandler() {
 		})
 }
 
-func (s *Server) NonProxyHandler() {
+// {callback:"http://localhost:3000/api/users" endpoint:"https://example.com/api/users", method:"GET"}
+func (s *Server) NonProxyHandler(config *Config) {
 	s.proxy.NonproxyHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		pattern := req.URL.Path
 		switch pattern {
 		case "/":
-			fmt.Fprintf(w, "")
+			if req.Method != "POST" {
+				mes := "Not Found"
+				respBody := &responseBody{Message: mes}
+				byteArr, err := structToJSON(respBody)
+				if err != nil {
+					fmt.Fprintln(w, err)
+				}
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(404)
+				fmt.Fprintf(w, string(byteArr))
+				return
+			}
+
+			reqBody, err := ioReader(req.Body)
+			if err != nil {
+				fmt.Fprintln(w, err)
+				return
+			}
+			var rbody interface{}
+			err = jsonToStruct([]byte(reqBody), &rbody)
+			if err != nil {
+				fmt.Fprintln(w, err)
+				return
+			}
+
+			callbackURL := rbody.(map[string]interface{})["callback"].(string)
+			endpoint := rbody.(map[string]interface{})["endpoint"].(string)
+			method := rbody.(map[string]interface{})["method"].(string)
+			if (callbackURL == "") && (endpoint == "") && (method == "") {
+				mes := "Not Found"
+				respBody := &responseBody{Message: mes}
+				byteArr, err := structToJSON(respBody)
+				if err != nil {
+					fmt.Fprintln(w, err)
+				}
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(404)
+				fmt.Fprintf(w, string(byteArr))
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(200)
+
+			//e.g. https://api.example.com/users => [https api.example.com/users]
+			x := strings.Split(endpoint, "://")
+
+			// e.g. api.example.com/users => [api.example.com users]
+			x2 := strings.SplitN(x[1], "/", 2)
+			scheme := x[0]
+			var url string
+			switch scheme {
+			case "http":
+				url = filepath.Join(x2[0], x2[1])
+			case "https":
+				url = filepath.Join(x2[0]+":443", x2[1])
+			}
+			dst := filepath.Join(config.cacheDir, url, method+".json")
+			b, err := readFile(dst)
+			if err != nil {
+				return
+			}
+			var conn Connection
+			err = jsonToStruct(b, &conn)
+			if err != nil {
+				return
+			}
+			var header interface{}
+			b = []byte(conn.Request.Header)
+			err = jsonToStruct(b, &header)
+			if err != nil {
+				return
+			}
+
+			callbackReq, err := http.NewRequest(
+				method,
+				endpoint,
+				bytes.NewBuffer([]byte(conn.Request.String)),
+			)
+			for k, v := range header.(map[string]interface{}) {
+				for _, vv := range v.([]interface{}) {
+					callbackReq.Header.Set(k, vv.(string))
+				}
+			}
+			client := new(http.Client)
+			resp, err := client.Do(callbackReq)
+			if err != nil {
+				return
+			}
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return
+			}
+			respStruct, err := responseStruct(body, resp)
+			if err != nil {
+				return
+			}
+			var mes string
+			if respStruct.String == conn.Response.String {
+				mes = "Valid"
+			} else {
+				mes = "Invalid"
+			}
+
+			nnbody := &responseBody{Message: mes}
+			byteArr, err := structToJSON(nnbody)
+			if err != nil {
+				fmt.Fprintln(w, err)
+			}
+			fmt.Fprintf(w, string(byteArr))
 		default:
 			http.Error(w, "Not Found", 404)
 		}
@@ -142,7 +254,7 @@ func (s *Server) Start() {
 	} else {
 		s.mockOnlyHandler()
 	}
-	s.NonProxyHandler()
+	s.NonProxyHandler(s.config)
 	log.Println("[INFO] Running...")
 	http.ListenAndServe(":8080", s.proxy)
 }
