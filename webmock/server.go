@@ -252,6 +252,6 @@ func (s *Server) Start() {
 		s.mockOnlyHandler()
 	}
 	s.NonProxyHandler(s.config)
-	log.Println("[INFO] Running...")
-	http.ListenAndServe(":8080", s.proxy)
+	log.Println("[INFO] Serving webmock-proxy on " + s.config.port)
+	log.Fatal("[ERROR] ", http.ListenAndServe(s.config.port, s.proxy))
 }
