@@ -2,10 +2,12 @@ package webmock
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -25,12 +27,6 @@ func NewServer(config *Config) (*Server, error) {
 	var db *gorm.DB
 	var err error
 	if config.local == true {
-		if config.syncCache == true {
-			err := sync(config)
-			if err != nil {
-				return nil, fmt.Errorf("[ERROR] Faild to sync cache: %v", err)
-			}
-		}
 		log.Println("[INFO] Use local cache files.")
 	} else {
 		db, err = NewDBConnection()
@@ -39,11 +35,21 @@ func NewServer(config *Config) (*Server, error) {
 		}
 		log.Println("[INFO] Use database.")
 	}
+	proxy := goproxy.NewProxyHttpServer()
+	if config.masterURL != "" {
+		proxyURL, err := url.Parse(config.masterURL)
+		if err != nil {
+			return nil, fmt.Errorf("[ERROR] Faild to parse webmock-proxy master url: %v", err)
+		}
+		proxy.Tr.Proxy = http.ProxyURL(proxyURL)
+		proxy.Tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		proxy.Tr.DisableCompression = true
+	}
 
 	return &Server{
 		config: config,
 		db:     db,
-		proxy:  goproxy.NewProxyHttpServer(),
+		proxy:  proxy,
 		body:   "",
 		head:   make(map[string][]string),
 	}, nil
@@ -54,6 +60,7 @@ func (s *Server) connectionCacheHandler() {
 	s.proxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
+			req.Header.Del("Proxy-Connection")
 
 			// DeepCopy *http.Request.Header (type: map[string][]string)
 			reqHeader := make(map[string][]string, len(req.Header))
@@ -67,7 +74,6 @@ func (s *Server) connectionCacheHandler() {
 			}
 			s.body = reqBody
 			s.head = reqHeader
-
 			return req, nil
 		})
 	s.proxy.OnResponse().Do(
@@ -91,6 +97,7 @@ func (s *Server) mockOnlyHandler() {
 	s.proxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
+			req.Header.Del("Proxy-Connection")
 
 			reqBody, err := ioReader(req.Body)
 			if err != nil {
