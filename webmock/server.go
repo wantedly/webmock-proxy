@@ -104,6 +104,7 @@ func (s *Server) mockOnlyHandler() {
 					log.Printf("[ERROR] %v", err)
 				}
 				if is == true {
+					log.Printf("[INFO] Create HTTP/S response using connection cache.")
 					resp, err = createHttpResponse(req, conn)
 					if err != nil {
 						log.Printf("[ERROR] %v", err)
@@ -112,6 +113,7 @@ func (s *Server) mockOnlyHandler() {
 					return req, resp
 				}
 			}
+			log.Printf("[INFO] Not match http connection cache.")
 			resp, err = createHttpErrorResponse(req)
 			if err != nil {
 				log.Printf("[ERROR] %v", err)
