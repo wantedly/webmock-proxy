@@ -27,13 +27,13 @@ func NewServer(config *Config) (*Server, error) {
 	var db *gorm.DB
 	var err error
 	if config.local == true {
-		log.Println("[INFO] Use local cache files.")
+		log.Printf("[INFO] Use local cache files")
 	} else {
 		db, err = NewDBConnection()
 		if err != nil {
 			return nil, fmt.Errorf("[ERROR] Faild to connect database: %v", err)
 		}
-		log.Println("[INFO] Use database.")
+		log.Printf("[INFO] Use database")
 	}
 	proxy := goproxy.NewProxyHttpServer()
 	if config.masterURL != "" {
@@ -87,7 +87,7 @@ func (s *Server) connectionCacheHandler() {
 				if err != nil {
 					log.Printf("[ERROR] %v", err)
 				}
-				fmt.Println(string(b))
+				fmt.Printf(string(b))
 				return b
 			}))
 }
@@ -101,30 +101,30 @@ func (s *Server) mockOnlyHandler() {
 
 			reqBody, err := ioReader(req.Body)
 			if err != nil {
-				log.Printf("[ERROR] %v", err)
+				log.Printf("[ERROR] %s", err)
 			}
 			conn, err := NewConnection(req, s)
 			if err != nil {
-				log.Printf("[ERROR] %v", err)
+				log.Printf("[ERROR] %s", err)
 			}
 			if conn != nil {
-				is, err := validateRequest(req, conn, string(reqBody))
+				isValid, err := validateRequest(req, conn, string(reqBody))
 				if err != nil {
-					log.Printf("[ERROR] %v", err)
+					log.Printf("[ERROR] %s", err)
 				}
-				if is == true {
-					log.Printf("[INFO] Create HTTP/S response using connection cache.")
+				if isValid == true {
+					log.Printf("[INFO] Create HTTP/S response using connection cache")
 					resp, err := createHttpResponse(req, conn)
 					if err != nil {
-						log.Printf("[ERROR] %v", err)
+						log.Printf("[ERROR] %s", err)
 					}
 					return req, resp
 				}
 			}
-			log.Printf("[INFO] Not match http connection cache.")
+			log.Printf("[INFO] Not match http connection cache")
 			resp, err := createHttpErrorResponse(req)
 			if err != nil {
-				log.Printf("[ERROR] %v", err)
+				log.Printf("[ERROR] %s", err)
 			}
 			return req, resp
 		})
@@ -249,18 +249,18 @@ func (s *Server) Start() {
 	if s.config.importCache != "" {
 		err := cacheImport(s)
 		if err != nil {
-			log.Fatal("[ERROR] Faild to import cache: ", err)
+			log.Fatalf("[ERROR] Faild to import cache: %s", err)
 		}
-		log.Println("[INFO] Success to import cache")
+		log.Printf("[INFO] Success to import cache")
 		os.Exit(0)
 	}
 	if s.config.record == true {
-		log.Println("[INFO] All HTTP/S request and response is cached.")
+		log.Printf("[INFO] All HTTP/S request and response is cached")
 		s.connectionCacheHandler()
 	} else {
 		s.mockOnlyHandler()
 	}
 	s.NonProxyHandler(s.config)
-	log.Println("[INFO] Serving webmock-proxy on " + s.config.port)
-	log.Fatal("[ERROR] ", http.ListenAndServe(s.config.port, s.proxy))
+	log.Printf("[INFO] Serving webmock-proxy on %s", s.config.port)
+	log.Fatalf("[ERROR] %s", http.ListenAndServe(s.config.port, s.proxy))
 }

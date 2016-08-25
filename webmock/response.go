@@ -26,7 +26,7 @@ func createHttpResponse(req *http.Request, conn *Connection) (*http.Response, er
 		return goproxy.NewResponse(req, "application/json", http.StatusInternalServerError, errms), err
 	}
 	body := resp.String
-	fmt.Println(body)
+	fmt.Printf(body)
 	return newResponse(req, &resp, header)
 }
 

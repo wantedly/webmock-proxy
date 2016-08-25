@@ -1,7 +1,6 @@
 package webmock
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -44,7 +43,7 @@ func readFilePaths(dir string) ([]string, error) {
 	var files []string
 	wd, err := os.Getwd()
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 	target := filepath.Join(wd, dir)
 	err = filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
