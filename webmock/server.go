@@ -1,7 +1,6 @@
 package webmock
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -9,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/elazarl/goproxy"
@@ -139,33 +139,33 @@ func (s *Server) NonProxyHandler(config *Config) {
 				createHttpResponseWriter(w, "Not Found", 404)
 				return
 			}
-
 			reqBody, err := ioReader(req.Body)
 			if err != nil {
-				fmt.Fprintln(w, err)
+				createHttpResponseWriter(w, "Faild to read response body", 500)
 				return
 			}
 			var jsonReqBody interface{}
 			err = jsonToStruct([]byte(reqBody), &jsonReqBody)
 			if err != nil {
-				createHttpResponseWriter(w, "Bad request", 404)
+				createHttpResponseWriter(w, "Illegal JSON format", 404)
 				return
 			}
 
-			callbackURL := jsonReqBody.(map[string]interface{})["callback"].(string)
-			endpointURL := jsonReqBody.(map[string]interface{})["endpoint"].(string)
-			method := jsonReqBody.(map[string]interface{})["method"].(string)
-			if (callbackURL == "") && (endpointURL == "") && (method == "") {
+			if (jsonReqBody.(map[string]interface{})["endpoint"] == nil) ||
+				(jsonReqBody.(map[string]interface{})["method"] == nil) ||
+				(jsonReqBody.(map[string]interface{})["body"] == nil) {
 				createHttpResponseWriter(w, "Bad request", 404)
 				return
 			}
+			endpointURL := jsonReqBody.(map[string]interface{})["endpoint"].(string)
+			method := jsonReqBody.(map[string]interface{})["method"].(string)
+			expectRequestBody := jsonReqBody.(map[string]interface{})["body"].(string)
 
 			//e.g. https://api.example.com/users => [https api.example.com/users]
 			x := strings.Split(endpointURL, "://")
 
 			// e.g. api.example.com/users => [api.example.com users]
 			x2 := strings.SplitN(x[1], "/", 2)
-			callbackURL = callbackURL + "/" + x2[1]
 			scheme := x[0]
 			var url string
 			switch scheme {
@@ -185,7 +185,7 @@ func (s *Server) NonProxyHandler(config *Config) {
 				}
 				err = jsonToStruct(b, &conn)
 				if err != nil {
-					createHttpResponseWriter(w, "Faild to create callback request body", 500)
+					createHttpResponseWriter(w, "Faild to convert json to struct", 500)
 					return
 				}
 			} else {
@@ -195,6 +195,7 @@ func (s *Server) NonProxyHandler(config *Config) {
 					return
 				}
 			}
+
 			var header interface{}
 			b := []byte(conn.Request.Header)
 			err = jsonToStruct(b, &header)
@@ -203,39 +204,36 @@ func (s *Server) NonProxyHandler(config *Config) {
 				return
 			}
 
-			callbackReq, err := http.NewRequest(
-				method,
-				callbackURL,
-				bytes.NewBuffer([]byte(conn.Request.String)),
-			)
+			if (expectRequestBody != conn.Request.String) ||
+				(method != conn.Request.Method) {
+				createHttpResponseWriter(w, "Not match http connection cache", 404)
+				return
+			}
+
+			resp := conn.Response
+			b = []byte(resp.Header)
+			err = jsonToStruct(b, &header)
+			if err != nil {
+				createHttpResponseWriter(w, "Faild to create callback request body", 500)
+				return
+			}
+			body := resp.String
 			for k, v := range header.(map[string]interface{}) {
 				for _, vv := range v.([]interface{}) {
-					callbackReq.Header.Set(k, vv.(string))
+					if k == "Content-Length" {
+						continue
+					}
+					w.Header().Set(k, vv.(string))
 				}
 			}
-			client := new(http.Client)
-			resp, err := client.Do(callbackReq)
+			split := strings.Split(resp.Status, " ")
+			status, err := strconv.Atoi(split[0])
 			if err != nil {
-				createHttpResponseWriter(w, "Faild to callback", 500)
+				createHttpResponseWriter(w, "Faild to convert response status to status code", 500)
 				return
 			}
-			body, err := ioReader(resp.Body)
-			if err != nil {
-				createHttpResponseWriter(w, "Faild to read callback response body", 500)
-				return
-			}
-			respStruct, err := responseStruct(body, resp)
-			if err != nil {
-				createHttpResponseWriter(w, "Faild to read callback response", 500)
-				return
-			}
-			var mes string
-			if respStruct.String == conn.Response.String {
-				mes = "Valid"
-			} else {
-				mes = "Invalid"
-			}
-			createHttpResponseWriter(w, mes, 200)
+			w.WriteHeader(status)
+			fmt.Fprintf(w, body)
 			return
 
 		default:
