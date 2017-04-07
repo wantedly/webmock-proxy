@@ -53,29 +53,24 @@ func (s *Server) connectionCacheHandler() {
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
 
-			// DeepCopy *http.Request.Header (type: map[string][]string)
-			reqHeader := make(map[string][]string, len(req.Header))
-			for k, v := range req.Header {
-				reqHeader[k] = v
-			}
-
-			reqBody, err := ioReader(req.Body)
+			defer req.Body.Close()
+			ctxReq, err := NewReq(req)
 			if err != nil {
-				log.Printf("[ERROR] %v", err)
+				log.Printf("failed to copy request: %v", err)
 			}
-			s.body = reqBody
-			s.head = reqHeader
-			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+			ctx.UserData = &Context{Req: ctxReq}
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(ctxReq.Body))
 			return req, nil
 		})
 	s.proxy.OnResponse().Do(
 		goproxy.HandleBytes(
 			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
 				log.Printf("[INFO] resp %s", ctx.Resp.Status)
-				reqBody := s.body
-				reqHeader := s.head
+				connCtx := ctx.UserData.(*Context)
+				reqBody := connCtx.Req.Body
+				reqHeader := connCtx.Req.Header
 				ctx.Req.Header = reqHeader
-				err := createCache(reqBody, b, ctx.Req, ctx.Resp, s)
+				err := createCache(string(reqBody), b, ctx.Req, ctx.Resp, s)
 				if err != nil {
 					log.Printf("[ERROR] %v", err)
 				}
