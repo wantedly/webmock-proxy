@@ -50,32 +50,24 @@ func initDB(config *Config) (*gorm.DB, error) {
 func (s *Server) connectionCacheHandler() {
 	s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 	s.proxy.OnRequest().DoFunc(
-		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
+		func(req *http.Request, pctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			log.Printf("[INFO] req %s %s", pctx.Req.Method, pctx.Req.URL.Host+pctx.Req.URL.Path)
 
-			// DeepCopy *http.Request.Header (type: map[string][]string)
-			reqHeader := make(map[string][]string, len(req.Header))
-			for k, v := range req.Header {
-				reqHeader[k] = v
-			}
-
-			reqBody, err := ioReader(req.Body)
+			body, err := ioutil.ReadAll(req.Body)
 			if err != nil {
-				log.Printf("[ERROR] %v", err)
+				log.Printf("failed to copy request: %v", err)
 			}
-			s.body = reqBody
-			s.head = reqHeader
-			req.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+			req.Body.Close()
+			pctx.UserData = &Context{RequestBody: body}
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 			return req, nil
 		})
 	s.proxy.OnResponse().Do(
 		goproxy.HandleBytes(
-			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
-				log.Printf("[INFO] resp %s", ctx.Resp.Status)
-				reqBody := s.body
-				reqHeader := s.head
-				ctx.Req.Header = reqHeader
-				err := createCache(reqBody, b, ctx.Req, ctx.Resp, s)
+			func(b []byte, pctx *goproxy.ProxyCtx) []byte {
+				log.Printf("[INFO] resp %s", pctx.Resp.Status)
+				ctx := pctx.UserData.(*Context)
+				err := createCache(string(ctx.RequestBody), b, pctx.Req, pctx.Resp, s)
 				if err != nil {
 					log.Printf("[ERROR] %v", err)
 				}
