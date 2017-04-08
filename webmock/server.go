@@ -50,27 +50,24 @@ func initDB(config *Config) (*gorm.DB, error) {
 func (s *Server) connectionCacheHandler() {
 	s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 	s.proxy.OnRequest().DoFunc(
-		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-			log.Printf("[INFO] req %s %s", ctx.Req.Method, ctx.Req.URL.Host+ctx.Req.URL.Path)
+		func(req *http.Request, pctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			log.Printf("[INFO] req %s %s", pctx.Req.Method, pctx.Req.URL.Host+pctx.Req.URL.Path)
 
-			defer req.Body.Close()
-			ctxReq, err := NewReq(req)
+			body, err := ioutil.ReadAll(req.Body)
 			if err != nil {
 				log.Printf("failed to copy request: %v", err)
 			}
-			ctx.UserData = &Context{Req: ctxReq}
-			req.Body = ioutil.NopCloser(bytes.NewBuffer(ctxReq.Body))
+			req.Body.Close()
+			pctx.UserData = &Context{RequestBody: body}
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 			return req, nil
 		})
 	s.proxy.OnResponse().Do(
 		goproxy.HandleBytes(
-			func(b []byte, ctx *goproxy.ProxyCtx) []byte {
-				log.Printf("[INFO] resp %s", ctx.Resp.Status)
-				connCtx := ctx.UserData.(*Context)
-				reqBody := connCtx.Req.Body
-				reqHeader := connCtx.Req.Header
-				ctx.Req.Header = reqHeader
-				err := createCache(string(reqBody), b, ctx.Req, ctx.Resp, s)
+			func(b []byte, pctx *goproxy.ProxyCtx) []byte {
+				log.Printf("[INFO] resp %s", pctx.Resp.Status)
+				ctx := pctx.UserData.(*Context)
+				err := createCache(string(ctx.RequestBody), b, pctx.Req, pctx.Resp, s)
 				if err != nil {
 					log.Printf("[ERROR] %v", err)
 				}
